@@ -70,10 +70,6 @@ export default function(editor, opt = {}) {
     },
   });
 
-
-
-
-
   // INPUT
   domc.addType(typeInput, {
     isComponent: el => el.tagName == 'INPUT',
@@ -111,10 +107,6 @@ export default function(editor, opt = {}) {
     }
   });
 
-
-
-
-
   // TEXTAREA
   domc.addType(typeTextarea, {
     extend: typeInput,
@@ -133,10 +125,6 @@ export default function(editor, opt = {}) {
     },
   });
 
-
-
-
-
   // OPTION
   domc.addType(typeOption, {
     isComponent: el => el.tagName == 'OPTION',
@@ -153,10 +141,6 @@ export default function(editor, opt = {}) {
   });
 
   const createOption = (value, name) => ({ type: typeOption, components: name, attributes: { value } });
-
-
-
-
 
   // SELECT
   domc.addType(typeSelect, {
@@ -187,10 +171,6 @@ export default function(editor, opt = {}) {
       },
     },
   });
-
-
-
-
 
   // CHECKBOX
   domc.addType(typeCheckbox, {
@@ -226,10 +206,6 @@ export default function(editor, opt = {}) {
     },
   });
 
-
-
-
-
   // RADIO
   domc.addType(typeRadio, {
     extend: typeCheckbox,
@@ -241,10 +217,6 @@ export default function(editor, opt = {}) {
       },
     },
   });
-
-
-
-
 
   domc.addType(typeButton, {
     extend: typeInput,
@@ -291,10 +263,6 @@ export default function(editor, opt = {}) {
       },
     },
   });
-
-
-
-
 
   // LABEL
   domc.addType(typeLabel, {

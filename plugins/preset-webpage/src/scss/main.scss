@@ -1,4 +1,5 @@
 @import "variables.scss";
+@import "../components/filestack/scss/main.scss";
 
 .#{$prefix} {
   @each $cnum, $ccol in (one, $primaryColor), (two, $secondaryColor), (three, $tertiaryColor), (four, $quaternaryColor) {

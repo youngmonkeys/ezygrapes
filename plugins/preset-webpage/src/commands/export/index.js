@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import FileSaver from 'file-saver';
+import 'regenerator-runtime/runtime'
 
 export default (editor, opts = {}) => {
   let pfx = editor.getConfig('stylePrefix');

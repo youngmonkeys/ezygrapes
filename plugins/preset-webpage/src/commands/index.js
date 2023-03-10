@@ -1,4 +1,4 @@
-import openImport from './openImport';
+import openImport from './open-import';
 import {
   cmdImport,
   cmdDeviceDesktop,

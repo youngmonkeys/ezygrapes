@@ -13,7 +13,7 @@ export default function(editor, opt = {}) {
   domc.addType(COUNTDOWN_TYPE, {
 
     model: defaultModel.extend({
-      defaults: {
+      getDefaults: {
         ...defaultModel.prototype.defaults,
         startfrom: c.startTime,
         endText: c.endText,

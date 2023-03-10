@@ -5,18 +5,17 @@ import components from './components';
 import panels from './panels';
 import styles from './styles';
 
-import pluginBlocks from './basic-blocks';
-import pluginCountdown from './component-countdown';
-import pluginNavbar from './ezygrapes-navbar';
-import pluginForms from './ezygrapes-forms';
-import pluginExport from './plugin-export';
-import pluginAviary from './ezygrapes-aviary';
-import pluginFilestack from './plugin-filestack';
+import pluginExport from './commands/export';
+import pluginBlocks from './components/basic-blocks';
+import pluginCountdown from './components/countdown';
+import pluginNavbar from './components/navbar';
+import pluginForms from './components/forms';
+import pluginAviary from './components/aviary';
+import pluginFilestack from './components/filestack';
 
 export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) => {
-  let config = opts;
 
-  let defaults = {
+  let config = {
     // Which blocks to add
     blocks: ['link-block', 'quote', 'text-basic'],
 
@@ -90,13 +89,9 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
     // Filestack library should be included manually
     // By setting this option to `false` will avoid loading the plugin
     filestackOpts: 0,
-  };
 
-  // Load defaults
-  for (let name in defaults) {
-    if (!(name in config))
-      config[name] = defaults[name];
-  }
+    ...opts,
+  };
 
   const {
     blocksBasicOpts,
@@ -131,5 +126,4 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
 
   // Load styles
   styles(editor, config);
-
 })

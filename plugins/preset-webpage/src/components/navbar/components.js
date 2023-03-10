@@ -7,7 +7,7 @@ export default (editor, opt = {}) => {
 
   dc.addType(burgerType, {
     model: defaultModel.extend({
-      defaults: {
+      getDefaults: {
         ...defaultModel.prototype.defaults,
         'custom-name': c.labelBurger,
         draggable: false,

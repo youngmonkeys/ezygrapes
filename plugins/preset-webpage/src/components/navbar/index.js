@@ -6,9 +6,8 @@ import {
 } from './consts';
 
 export default ezygrapes.plugins.add('gjs-navbar', (editor, opts = {}) => {
-  let c = opts;
 
-  let defaults = {
+  let config = {
     blocks: [hNavbarRef],
     defaultStyle: 1,
     navbarClsPfx: 'navbar',
@@ -23,14 +22,9 @@ export default ezygrapes.plugins.add('gjs-navbar', (editor, opts = {}) => {
     labelHome: 'Home',
     labelAbout: 'About',
     labelContact: 'Contact',
+    ...opts,
   };
 
-  // Load defaults
-  for (let name in defaults) {
-    if (!(name in c))
-      c[name] = defaults[name];
-  }
-
-  loadBlocks(editor, c);
-  loadComponents(editor, c);
+  loadComponents(editor, config);
+  loadBlocks(editor, config);
 });
