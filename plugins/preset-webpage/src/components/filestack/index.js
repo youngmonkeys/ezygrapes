@@ -5,7 +5,7 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
   let pfx = config.stylePrefix || '';
   let btnEl;
 
-  let defaults = {
+  let settings = {
     // Filestack's API key
     key: '',
 
@@ -34,11 +34,11 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
     throw new Error('Filestack instance not found');
   }
 
-  if(!config.key){
+  if(!settings.key){
     throw new Error('Filestack\'s API key not found');
   }
 
-  const fsClient = filestack.init(config.key);
+  const fsClient = filestack.init(settings.key);
 
 
   // When the Asset Manager modal is opened
@@ -55,20 +55,20 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
 
     // Instance button if not yet exists
     if(!btnEl) {
-      btnEl = config.btnEl;
+      btnEl = settings.btnEl;
 
       if(!btnEl) {
         btnEl = document.createElement('button');
         btnEl.className = pfx + 'btn-prim ' + pfx + 'btn-filestack';
-        btnEl.innerHTML = config.btnText;
+        btnEl.innerHTML = settings.btnText;
       }
 
       btnEl.onclick = () => {
-        fsClient.pick(config.filestackOpts).then((objs) => {
+        fsClient.pick(settings.filestackOpts).then((objs) => {
           const blob = objs.filesUploaded;
           const blobs = blob instanceof Array ? blob : [blob];
           let assets = addAssets(blobs);
-          config.onComplete(blobs, assets);
+          settings.onComplete(blobs, assets);
         });
       };
     }
