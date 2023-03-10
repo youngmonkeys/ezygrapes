@@ -1,0 +1,11 @@
+$pfx: 'gjs-';
+$pfxam: $pfx + 'form-component';
+
+.#{$pfxam} {
+  align-items: center;
+  justify-content: center;
+}
+
+.#{$pfxam} svg {
+  width: 3rem;
+}
