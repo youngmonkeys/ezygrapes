@@ -1,7 +1,6 @@
 import ezygrapes from 'ezygrapes';
 
 export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {}) => {
-  let c = opts;
   let config = editor.getConfig();
   let pfx = config.stylePrefix || '';
   let btnEl;
@@ -27,23 +26,19 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
     // assets - Array of inserted assets
     // for debug: console.log(JSON.stringify(blobs));
     onComplete: (blobs, assets) => {},
-  };
 
-  // Load defaults
-  for (let name in defaults) {
-    if (!(name in c))
-      c[name] = defaults[name];
-  }
+    ...opts,
+  };
 
   if(!filestack) {
     throw new Error('Filestack instance not found');
   }
 
-  if(!c.key){
+  if(!config.key){
     throw new Error('Filestack\'s API key not found');
   }
 
-  const fsClient = filestack.init(c.key);
+  const fsClient = filestack.init(config.key);
 
 
   // When the Asset Manager modal is opened
@@ -60,20 +55,20 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
 
     // Instance button if not yet exists
     if(!btnEl) {
-      btnEl = c.btnEl;
+      btnEl = config.btnEl;
 
       if(!btnEl) {
         btnEl = document.createElement('button');
         btnEl.className = pfx + 'btn-prim ' + pfx + 'btn-filestack';
-        btnEl.innerHTML = c.btnText;
+        btnEl.innerHTML = config.btnText;
       }
 
       btnEl.onclick = () => {
-        fsClient.pick(c.filestackOpts).then((objs) => {
+        fsClient.pick(config.filestackOpts).then((objs) => {
           const blob = objs.filesUploaded;
           const blobs = blob instanceof Array ? blob : [blob];
           let assets = addAssets(blobs);
-          c.onComplete(blobs, assets);
+          config.onComplete(blobs, assets);
         });
       };
     }

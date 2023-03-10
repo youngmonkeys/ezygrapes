@@ -9,11 +9,10 @@ import {
   typeLabel,
 } from './components';
 
-export default function (editor, opt = {}) {
-  const c = opt;
+export default function (editor, opts = {}) {
   const bm = editor.BlockManager;
   const addBlock = (id, def) => {
-    c.blocks.indexOf(id) >= 0 && bm.add(id, {
+    opts.blocks.indexOf(id) >= 0 && bm.add(id, {
       ...def,
       category: { id: 'forms', label: 'Forms' },
     });

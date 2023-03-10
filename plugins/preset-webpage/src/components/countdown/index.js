@@ -6,55 +6,22 @@ import {
 } from './consts';
 
 export default ezygrapes.plugins.add('gjs-component-countdown', (editor, opts = {}) => {
-  let c = opts;
-
-  let defaults = {
+  let config = {
     blocks: [countdownRef],
-
-    // Default style
     defaultStyle: true,
-
-    // Default start time, eg. '2018-01-25 00:00'
     startTime: '',
-
-    // Text to show when the countdown is ended
     endText: 'EXPIRED',
-
-    // Date input type, eg, 'date', 'datetime-local'
     dateInputType: 'date',
-
-    // Countdown class prefix
     countdownClsPfx: 'countdown',
-
-    // Countdown label
     labelCountdown: 'Countdown',
-
-    // Countdown category label
     labelCountdownCategory: 'Extra',
-
-    // Days label text used in component
     labelDays: 'days',
-
-    // Hours label text used in component
     labelHours: 'hours',
-
-    // Minutes label text used in component
     labelMinutes: 'minutes',
-
-    // Seconds label text used in component
     labelSeconds: 'seconds',
+    ...opts,
   };
 
-  // Load defaults
-  for (let name in defaults) {
-    if (!(name in c))
-      c[name] = defaults[name];
-  }
-
-  // Add components
-  loadComponents(editor, c);
-
-  // Add components
-  loadBlocks(editor, c);
-
+  loadComponents(editor, config);
+  loadBlocks(editor, config);
 });

@@ -1,28 +1,24 @@
-export default function(editor, opt = {}) {
-  const c = opt;
+export default function(editor, opts = {}) {
   const domc = editor.DomComponents;
   const defaultType = domc.getType('default');
-  const textType = domc.getType('text');
   const defaultModel = defaultType.model;
   const defaultView = defaultType.view;
-  const textModel = textType.model;
-  const textView = textType.view;
-  const pfx = c.countdownClsPfx;
-  const COUNTDOWN_TYPE = 'countdown';
+  const pfx = opts.countdownClsPfx;
+  const countdownType = 'countdown';
 
-  domc.addType(COUNTDOWN_TYPE, {
+  domc.addType(countdownType, {
 
     model: defaultModel.extend({
       getDefaults: {
         ...defaultModel.prototype.defaults,
-        startfrom: c.startTime,
-        endText: c.endText,
+        startfrom: opts.startTime,
+        endText: opts.endText,
         droppable: false,
         traits: [{
           label: 'Start',
           name: 'startfrom',
           changeProp: 1,
-          type: c.dateInputType,
+          type: opts.dateInputType,
         },{
           label: 'End text',
           name: 'endText',
@@ -83,9 +79,9 @@ export default function(editor, opt = {}) {
     }, {
       isComponent(el) {
         if(el.getAttribute &&
-          el.getAttribute('data-gjs-type') == COUNTDOWN_TYPE) {
+          el.getAttribute('data-gjs-type') == countdownType) {
           return {
-            type: COUNTDOWN_TYPE
+            type: countdownType
           };
         }
       },
@@ -104,19 +100,19 @@ export default function(editor, opt = {}) {
             <span data-js="countdown" class="${pfx}-cont">
               <div class="${pfx}-block">
                 <div data-js="countdown-day" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${c.labelDays}</div>
+                <div class="${pfx}-label">${opts.labelDays}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-hour" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${c.labelHours}</div>
+                <div class="${pfx}-label">${opts.labelHours}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-minute" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${c.labelMinutes}</div>
+                <div class="${pfx}-label">${opts.labelMinutes}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-second" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${c.labelSeconds}</div>
+                <div class="${pfx}-label">${opts.labelSeconds}</div>
               </div>
             </span>
             <span data-js="countdown-endtext" class="${pfx}-endtext"></span>

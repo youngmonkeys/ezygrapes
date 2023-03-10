@@ -1,11 +1,10 @@
-export default function(editor, opt = {}) {
-  const c = opt;
+export default function(editor, opts = {}) {
   let bm = editor.BlockManager;
-  let blocks = c.blocks;
-  let stylePrefix = c.stylePrefix;
-  const flexGrid = c.flexGrid;
-  const basicStyle = c.addBasicStyle;
-  const rowHeight = c.rowHeight;
+  let blocks = opts.blocks;
+  let stylePrefix = opts.stylePrefix;
+  const flexGrid = opts.flexGrid;
+  const basicStyle = opts.addBasicStyle;
+  const rowHeight = opts.rowHeight;
   const clsRow = `${stylePrefix}row`;
   const clsCell = `${stylePrefix}cell`;
   const styleRow = flexGrid

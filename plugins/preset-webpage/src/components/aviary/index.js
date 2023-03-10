@@ -3,11 +3,10 @@ import ezygrapes from 'ezygrapes';
 const PLUGIN_NAME = 'gjs-aviary';
 
 export default ezygrapes.plugins.add(PLUGIN_NAME, (editor, opts = {}) => {
-  let c = opts;
   let em = editor.getModel();
   let editorImage;
 
-  let defaults = {
+  let settings = {
     key: '1',
 
     // By default, GrapesJS takes the modified image (hosted on AWS) and
@@ -35,26 +34,22 @@ export default ezygrapes.plugins.add(PLUGIN_NAME, (editor, opts = {}) => {
 
     // Aviary's configurations
     // https://creativesdk.adobe.com/docs/web/#/articles/imageeditorui/index.html
-    config: {}
+    config: {},
+
+    ...opts,
   };
 
-  // Load defaults
-  for (let name in defaults) {
-    if (!(name in c))
-      c[name] = defaults[name];
-  }
-
-  let config = c.config;
-  config.apiKey = c.key;
+  let config = settings.config;
+  config.apiKey = settings.key;
   config.onSave = (imageID, newURL) => {
     editorImage.set('src', newURL);
-    let getName = typeof c.getFilename == 'function' ? c.getFilename : getFilename;
+    let getName = typeof settings.getFilename == 'function' ? settings.getFilename : getFilename;
     let filename = getName(editorImage);
-    let apply = typeof c.onApply == 'function' ? c.onApply : onApply;
+    let apply = typeof settings.onApply == 'function' ? settings.onApply : onApply;
 
     apply(newURL, filename, editorImage);
 
-    if (c.closeOnApply) {
+    if (settings.closeOnApply) {
       imageEditor.close();
     }
   };
@@ -93,5 +88,4 @@ export default ezygrapes.plugins.add(PLUGIN_NAME, (editor, opts = {}) => {
       em.trigger(`${PLUGIN_NAME}:launch`, sel, imageEditor);
     },
   });
-
 });

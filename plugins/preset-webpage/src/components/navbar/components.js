@@ -1,5 +1,4 @@
-export default (editor, opt = {}) => {
-  const c = opt;
+export default (editor, opts = {}) => {
   const dc = editor.DomComponents;
   const defaultType = dc.getType('default');
   const defaultModel = defaultType.model;
@@ -9,7 +8,7 @@ export default (editor, opt = {}) => {
     model: defaultModel.extend({
       getDefaults: {
         ...defaultModel.prototype.defaults,
-        'custom-name': c.labelBurger,
+        'custom-name': opts.labelBurger,
         draggable: false,
         droppable: false,
         copyable: false,
@@ -44,9 +43,6 @@ export default (editor, opt = {}) => {
           var getElHeight = function(el) {
             var style = window.getComputedStyle(el);
             var elDisplay = style.display;
-            var elPos = style.position;
-            var elVis = style.visibility;
-            var currentHeight = style.height;
             var elMaxHeight = parseInt(style[transitProp]);
 
             if (elDisplay !== 'none' && elMaxHeight !== '0') {
@@ -118,6 +114,7 @@ export default (editor, opt = {}) => {
 
           this[stringCollapse] = 1;
         },
+        ...opts,
       },
     }, {
       isComponent(el) {

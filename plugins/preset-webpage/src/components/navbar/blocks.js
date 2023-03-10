@@ -5,11 +5,10 @@ import {
   menuRef
 } from './consts';
 
-export default (editor, opt = {}) => {
-  const c = opt;
+export default (editor, opts = {}) => {
   const bm = editor.BlockManager;
-  const navbarPfx = c.navbarClsPfx || 'navbar';
-  const style = c.defaultStyle ? `
+  const navbarPfx = opts.navbarClsPfx || 'navbar';
+  const style = opts.defaultStyle ? `
   <style>
     .${navbarPfx}-items-c {
       display: inline-block;
@@ -96,7 +95,7 @@ export default (editor, opt = {}) => {
   </style>
   ` : '';
 
-  if (c.blocks.indexOf(hNavbarRef) >= 0) {
+  if (opts.blocks.indexOf(hNavbarRef) >= 0) {
     bm.add(hNavbarRef, {
       label: `
         <svg class="gjs-block-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -105,27 +104,27 @@ export default (editor, opt = {}) => {
           <rect class="gjs-block-svg-path" x="15" y="13" width="5" height="1"></rect>
           <rect class="gjs-block-svg-path" x="15" y="11.5" width="5" height="1"></rect>
         </svg>
-        <div class="gjs-block-label">${c.labelNavbarBlock}</div>`,
-      category: c.labelNavbarCategory,
+        <div class="gjs-block-label">${opts.labelNavbarBlock}</div>`,
+      category: opts.labelNavbarCategory,
       content: `
-        <div class="${navbarPfx}" data-gjs-droppable="false" data-gjs-custom-name="${c.labelNavbar}" data-gjs="${navbarRef}">
+        <div class="${navbarPfx}" data-gjs-droppable="false" data-gjs-custom-name="${opts.labelNavbar}" data-gjs="${navbarRef}">
           <div class="${navbarPfx}-container" data-gjs-droppable="false" data-gjs-draggable="false"
             data-gjs-removable="false" data-gjs-copyable="false" data-gjs-highlightable="false"
-            data-gjs-custom-name="${c.labelNavbarContainer}">
+            data-gjs-custom-name="${opts.labelNavbarContainer}">
 
             <a href="/" class="${navbarPfx}-brand" data-gjs-droppable="true"></a>
 
             <div class="${navbarPfx}-burger" data-gjs-type="burger-menu">
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${c.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${c.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${c.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
             </div>
 
             <div class="${navbarPfx}-items-c" data-gjs="${navbarItemsRef}">
-              <nav class="${navbarPfx}-menu" data-gjs="${menuRef}" data-gjs-custom-name="${c.labelMenu}">
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${c.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${c.labelHome}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${c.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${c.labelAbout}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${c.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${c.labelContact}</a>
+              <nav class="${navbarPfx}-menu" data-gjs="${menuRef}" data-gjs-custom-name="${opts.labelMenu}">
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelHome}</a>
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelAbout}</a>
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelContact}</a>
               </nav>
             </div>
 
