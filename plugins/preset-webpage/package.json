@@ -1,13 +1,13 @@
 {
   "name": "ezygrapes-preset-webpage",
-  "version": "0.0.34",
+  "version": "0.0.36",
   "description": "Ezygrapes default editor plugin",
   "main": "dist/ezygrapes-preset-webpage.min.js",
   "scripts": {
     "lint": "eslint src",
     "v:patch": "npm version --no-git-tag-version patch",
     "build": "npm run v:patch && webpack --config webpack.prod.js && npm run build:css",
-    "start": "webpack serve --open --config webpack.dev.js & npm run build:css -- -w",
+    "start": "webpack serve --no-open --config webpack.dev.js & npm run build:css -- -w",
     "build:css": "node-sass src/scss/main.scss dist/ezygrapes-preset-webpage.min.css --output-style compressed"
   },
   "repository": {
