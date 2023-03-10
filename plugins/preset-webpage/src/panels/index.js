@@ -9,8 +9,6 @@ import {
 export default (editor, config) => {
   const pn = editor.Panels;
   const eConfig = editor.getConfig();
-  const crc = 'create-comp';
-  const mvc = 'move-comp';
   const swv = 'sw-visibility';
   const expt = 'export-template';
   const osm = 'open-sm';

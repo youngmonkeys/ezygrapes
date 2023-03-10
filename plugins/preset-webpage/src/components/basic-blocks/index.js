@@ -32,5 +32,5 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
   };
 
   // Add blocks
-  loadBlocks.default(editor, config);
+  loadBlocks(editor, config);
 });

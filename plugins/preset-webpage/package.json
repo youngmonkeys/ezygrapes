@@ -1,6 +1,6 @@
 {
   "name": "ezygrapes-preset-webpage",
-  "version": "0.0.24",
+  "version": "0.0.34",
   "description": "Ezygrapes default editor plugin",
   "main": "dist/ezygrapes-preset-webpage.min.js",
   "scripts": {
@@ -23,16 +23,9 @@
   ],
   "author": "Artur Arseniev",
   "license": "BSD-3-Clause",
-  "babel": {
-    "presets": [
-      "env"
-    ],
-    "plugins": [
-      "transform-object-rest-spread"
-    ]
-  },
   "devDependencies": {
-    "babel-core": "^6.26.3",
+    "@babel/core": "^7.21.0",
+    "@babel/preset-env": "^7.20.2",
     "babel-loader": "^9.1.2",
     "eslint": "^8.35.0",
     "html-webpack-plugin": "^5.5.0",
