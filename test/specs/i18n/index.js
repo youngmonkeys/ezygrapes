@@ -50,7 +50,7 @@ describe('I18n', () => {
       obj = newModuleWithConfig({
         messages: { it: {} },
       });
-      expect(Object.keys(obj.getMessages())).toEqual(['en', 'it']);
+      expect(Object.keys(obj.getMessages())).toEqual(['en', 'vi', 'it']);
     });
 
     test('setLocale and getLocale methods', () => {

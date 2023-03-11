@@ -2,7 +2,7 @@ const traitInputAttr = { placeholder: 'ví dụ: chữ ở đây' };
 
 export default {
   assetManager: {
-    addButton: 'Thêm ảnh',
+    addButton: 'Thêm',
     inputPlh: 'http://path/to/the/image.jpg',
     modalTitle: 'Chọn ảnh',
     uploadTitle: 'Kéo thả file vào đây hoặc click để upload',

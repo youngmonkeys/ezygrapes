@@ -2,7 +2,7 @@ const traitInputAttr = { placeholder: 'eg. Text here' };
 
 export default {
   assetManager: {
-    addButton: 'Add image',
+    addButton: 'Add',
     inputPlh: 'http://path/to/the/image.jpg',
     modalTitle: 'Select Image',
     uploadTitle: 'Drop files here or click to upload',

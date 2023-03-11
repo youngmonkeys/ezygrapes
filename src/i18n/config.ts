@@ -1,4 +1,5 @@
 import en from './locale/en';
+import vi from './locale/vi';
 
 export interface I18nConfig {
   /**
@@ -42,7 +43,7 @@ const config: I18nConfig = {
   localeFallback: 'en',
   detectLocale: true,
   debug: false,
-  messages: { en },
+  messages: { en, vi },
   messagesAdd: undefined,
 };
 
