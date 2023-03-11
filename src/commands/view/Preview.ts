@@ -50,7 +50,7 @@ export default {
 
     if (!this.helper) {
       const helper = document.createElement('span');
-      helper.className = `${pfx}off-prv fas fa-eye-slash`;
+      helper.className = `${pfx}off-prv fa fa-eye-slash`;
       editorEl.appendChild(helper);
       helper.onclick = () => this.stopCommand();
       this.helper = helper;
