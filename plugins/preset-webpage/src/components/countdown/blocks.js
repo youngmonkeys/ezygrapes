@@ -1,7 +1,3 @@
-import {
-  countdownRef
-} from './consts';
-
 export default function (editor, opts = {}) {
   const bm = editor.BlockManager;
   const pfx = opts.countdownClsPfx;
@@ -31,10 +27,10 @@ export default function (editor, opts = {}) {
     }
   </style>` : '';
 
-  if (opts.blocks.indexOf(countdownRef) >= 0) {
-    bm.add(countdownRef, {
-      label: opts.labelCountdown,
-      category: opts.labelCountdownCategory,
+  if (opts.blocks.indexOf('countdown') >= 0) {
+    bm.add('countdown', {
+      label: editor.I18n.t('countdown'),
+      category: editor.I18n.t('extra'),
       attributes: {class: 'far fa-clock', style: 'font-size: 1.5rem; font-weight: 900'},
       content: `
         <div class='${pfx}' data-gjs-type='countdown'></div>

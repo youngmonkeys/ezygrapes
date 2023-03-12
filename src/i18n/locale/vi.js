@@ -78,7 +78,7 @@ export default {
       layout: 'Bố cục',
       typography: 'Kiểu chữ',
       decorations: 'Trang trí',
-      extra: 'Extra',
+      extra: 'Thêm',
       flex: 'Flex',
       dimension: 'Kích thước',
     },

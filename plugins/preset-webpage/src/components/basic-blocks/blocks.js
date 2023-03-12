@@ -128,10 +128,12 @@ export default function(editor, opts = {}) {
   const attrsRow = attrsToString(rowAttr);
   const attrsCell = attrsToString(colAttr);
 
+  const categoryName = editor.I18n.t(opts.category);
+
   toAdd('column1') &&
     bm.add('column1', {
-      label: opts.labelColumn1,
-      category: opts.category,
+      label: editor.I18n.t('1_column'),
+      category: categoryName,
       attributes: { class: 'gjs-fonts gjs-f-b1' },
       content: `<div ${attrsRow}>
         <div ${attrsCell}></div>
@@ -148,9 +150,9 @@ export default function(editor, opts = {}) {
 
   toAdd('column2') &&
     bm.add('column2', {
-      label: opts.labelColumn2,
+      label: editor.I18n.t('2_columns'),
       attributes: { class: 'gjs-fonts gjs-f-b2' },
-      category: opts.category,
+      category: categoryName,
       content: `<div ${attrsRow}>
         <div ${attrsCell}></div>
         <div ${attrsCell}></div>
@@ -167,8 +169,8 @@ export default function(editor, opts = {}) {
 
   toAdd('column3') &&
     bm.add('column3', {
-      label: opts.labelColumn3,
-      category: opts.category,
+      label: editor.I18n.t('3_columns'),
+      category: categoryName,
       attributes: { class: 'gjs-fonts gjs-f-b3' },
       content: `<div ${attrsRow}>
         <div ${attrsCell}></div>
@@ -187,8 +189,8 @@ export default function(editor, opts = {}) {
 
   toAdd('column3-7') &&
     bm.add('column3-7', {
-      label: opts.labelColumn37,
-      category: opts.category,
+      label: editor.I18n.t('2_columns_3_7'),
+      category: categoryName,
       attributes: { class: 'gjs-fonts gjs-f-b37' },
       content: `<div ${attrsRow}>
         <div ${attrsCell} style='${
@@ -212,8 +214,8 @@ export default function(editor, opts = {}) {
 
   toAdd('text') &&
     bm.add('text', {
-      label: opts.labelText,
-      category: opts.category,
+      label: editor.I18n.t('text'),
+      category: categoryName,
       attributes: { class: 'gjs-fonts gjs-f-text' },
       content: {
         type: 'text',
@@ -225,8 +227,8 @@ export default function(editor, opts = {}) {
 
   toAdd('link') &&
     bm.add('link', {
-      label: opts.labelLink,
-      category: opts.category,
+      label: editor.I18n.t('link'),
+      category: categoryName,
       attributes: { class: 'fas fa-link', style: 'font-size: 1.5rem; font-weight: 900' },
       content: {
         type: 'link',
@@ -237,8 +239,8 @@ export default function(editor, opts = {}) {
 
   toAdd('image') &&
     bm.add('image', {
-      label: opts.labelImage,
-      category: opts.category,
+      label: editor.I18n.t('image'),
+      category: categoryName,
       attributes: { class: 'gjs-fonts gjs-f-image' },
       content: {
         style: { color: 'black' },
@@ -249,8 +251,8 @@ export default function(editor, opts = {}) {
 
   toAdd('video') &&
     bm.add('video', {
-      label: opts.labelVideo,
-      category: opts.category,
+      label: editor.I18n.t('video'),
+      category: categoryName,
       attributes: { class: 'fab fa-youtube', style: 'font-size: 1.5rem; font-weight: 900' },
       content: {
         type: 'video',
@@ -264,8 +266,8 @@ export default function(editor, opts = {}) {
 
   toAdd('map') &&
     bm.add('map', {
-      label: opts.labelMap,
-      category: opts.category,
+      label: editor.I18n.t('map'),
+      category: categoryName,
       attributes: { class: 'fas fa-map', style: 'font-size: 1.5rem; font-weight: 900' },
       content: {
         type: 'map',

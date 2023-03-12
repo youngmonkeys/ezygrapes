@@ -1,10 +1,12 @@
-export default (editor, config) => {
+export default (editor, opts) => {
   const bm = editor.BlockManager;
-  const toAdd = name => config.blocks.indexOf(name) >= 0;
+  const toAdd = name => opts.blocks.indexOf(name) >= 0;
+
+  const categoryName = editor.I18n.t(opts.category) || opts.category;
 
   toAdd('link-block') && bm.add('link-block', {
-    category: 'Basic',
-    label: 'Link Block',
+    category: categoryName,
+    label: editor.I18n.t('link_block'),
     attributes: { class: 'fas fa-link', style: 'font-size: 1.5rem; font-weight: 900'  },
     content: {
       type:'link',
@@ -20,8 +22,8 @@ export default (editor, config) => {
   });
 
   toAdd('quote') && bm.add('quote', {
-    label: 'Quote',
-    category: 'Basic',
+    label: editor.I18n.t('quote'),
+    category: categoryName,
     attributes: { class: 'fas fa-quote-right', style: 'font-size: 1.5rem; font-weight: 900'  },
     content: `<blockquote class="quote">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore ipsum dolor sit
@@ -29,8 +31,8 @@ export default (editor, config) => {
   });
 
   toAdd('text-basic') && bm.add('text-basic', {
-    category: 'Basic',
-    label: 'Text section',
+    category: categoryName,
+    label: editor.I18n.t('text_section'),
     attributes: { class: 'gjs-fonts gjs-f-h1p' },
     content: `<section class="bdg-sect">
       <h1 class="heading">Insert title here</h1>

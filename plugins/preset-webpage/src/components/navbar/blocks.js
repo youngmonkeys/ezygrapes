@@ -104,27 +104,27 @@ export default (editor, opts = {}) => {
           <rect class="gjs-block-svg-path" x="15" y="13" width="5" height="1"></rect>
           <rect class="gjs-block-svg-path" x="15" y="11.5" width="5" height="1"></rect>
         </svg>
-        <div class="gjs-block-label">${opts.labelNavbarBlock}</div>`,
-      category: opts.labelNavbarCategory,
+        <div class="gjs-block-label">${editor.I18n.t('navbar')}</div>`,
+      category: editor.I18n.t('extra'),
       content: `
-        <div class="${navbarPfx}" data-gjs-droppable="false" data-gjs-custom-name="${opts.labelNavbar}" data-gjs="${navbarRef}">
+        <div class="${navbarPfx}" data-gjs-droppable="false" data-gjs-custom-name="${editor.I18n.t('navbar')}" data-gjs="${navbarRef}">
           <div class="${navbarPfx}-container" data-gjs-droppable="false" data-gjs-draggable="false"
             data-gjs-removable="false" data-gjs-copyable="false" data-gjs-highlightable="false"
-            data-gjs-custom-name="${opts.labelNavbarContainer}">
+            data-gjs-custom-name="${editor.I18n.t('navbar_container')}">
 
             <a href="/" class="${navbarPfx}-brand" data-gjs-droppable="true"></a>
 
-            <div class="${navbarPfx}-burger" data-gjs-type="burger-menu">
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${opts.labelBurgerLine}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+            <div class="${navbarPfx}-burger" data-gjs-type="burger-menu" data-gjs-custom-name="${editor.I18n.t('burger_menu')}">
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
+              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
             </div>
 
             <div class="${navbarPfx}-items-c" data-gjs="${navbarItemsRef}">
-              <nav class="${navbarPfx}-menu" data-gjs="${menuRef}" data-gjs-custom-name="${opts.labelMenu}">
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelHome}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelAbout}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${opts.labelMenuLink}" data-gjs-draggable="[data-gjs=${menuRef}]">${opts.labelContact}</a>
+              <nav class="${navbarPfx}-menu" data-gjs="${menuRef}" data-gjs-custom-name="${editor.I18n.t('navbar_menu')}">
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('home')}</a>
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('about')}</a>
+                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('contact')}</a>
               </nav>
             </div>
 

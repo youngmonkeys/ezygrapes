@@ -3,7 +3,7 @@ import commands from './commands';
 import blocks from './blocks';
 import components from './components';
 import panels from './panels';
-import styles from './styles';
+import i18n from './i18n';
 
 import pluginExport from './commands/export';
 import pluginBlocks from './components/basic-blocks';
@@ -15,15 +15,13 @@ import pluginFilestack from './components/filestack';
 
 export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) => {
 
+  i18n.addI18nMessages(editor);
+
   let config = {
+    category: "basic",
+
     // Which blocks to add
     blocks: ['link-block', 'quote', 'text-basic'],
-
-    // Modal import title
-    modalImportTitle: 'Import',
-
-    // Modal import button text
-    modalImportButton: 'Import',
 
     // Import description inside import modal
     modalImportLabel: '',
@@ -36,26 +34,8 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
     // Code viewer (eg. CodeMirror) options
     importViewerOptions: {},
 
-    // Confirm text before cleaning the canvas
-    textCleanCanvas: 'Are you sure to clean the canvas?',
-
     // Show the Style Manager on component change
     showStylesOnChange: 1,
-
-    // Text for General sector in Style Manager
-    textGeneral: 'General',
-
-    // Text for Layout sector in Style Manager
-    textLayout: 'Layout',
-
-    // Text for Typography sector in Style Manager
-    textTypography: 'Typography',
-
-    // Text for Decorations sector in Style Manager
-    textDecorations: 'Decorations',
-
-    // Text for Extra sector in Style Manager
-    textExtra: 'Extra',
 
     // Use custom set of sectors for the Style Manager
     customStyleManager: [],
@@ -123,7 +103,4 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
 
   // Load panels
   panels(editor, config);
-
-  // Load styles
-  styles(editor, config);
 })

@@ -27,18 +27,10 @@
 | Option | Description | Default |
 | - | - | - |
 | `blocks` | Which blocks to add | `['link-block', 'quote', 'text-basic']` |
-| `modalImportTitle` | Modal import title | `'Import'` |
-| `modalImportButton` | Modal import button text | `'Import'` |
 | `modalImportLabel` | Import description inside import modal | `''` |
 | `modalImportContent` | Default content to setup on import model open. Could also be a function with a dynamic content return (must be a string) eg. `modalImportContent: editor => editor.getHtml()` | `''` |
 | `importViewerOptions` | Code viewer (eg. CodeMirror) options | `{}` |
-| `textCleanCanvas` | Confirm text before cleaning the canvas | `'Are you sure to clean the canvas?'` |
 | `showStylesOnChange` | Show the Style Manager on component change | `true` |
-| `textGeneral` | Text for General sector in Style Manager | `'General'` |
-| `textLayout` | Text for Layout sector in Style Manager | `'Layout'` |
-| `textTypography` | Text for Typography sector in Style Manager | `'Typography'` |
-| `textDecorations` | Text for Decorations sector in Style Manager | `'Decorations'` |
-| `textExtra` | Text for Extra sector in Style Manager | `'Extra'` |
 | `customStyleManager` | Use custom set of sectors for the Style Manager | `[]` |
 | `blocksBasicOpts` | `grapesjs-blocks-basic` plugin options. By setting this option to `false` will avoid loading the plugin | `{}` |
 | `navbarOpts` | `grapesjs-navbar` plugin options. By setting this option to `false` will avoid loading the plugin | `{}` |
@@ -60,7 +52,6 @@ $ npm i grapesjs-preset-webpage
 <link href="path/to/grapes.min.css" rel="stylesheet"/>
 <link href="path/to/grapesjs-preset-webpage.min.css" rel="stylesheet"/>
 <script src="path/to/grapes.min.js"></script>
-<script src="path/to/grapesjs-preset-webpage.min.js"></script>
 
 <div id="gjs"></div>
 

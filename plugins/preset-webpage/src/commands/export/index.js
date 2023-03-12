@@ -9,7 +9,7 @@ export default (editor, opts = {}) => {
 
   let config = {
     addExportBtn: 1,
-    btnLabel: 'Export to ZIP',
+    btnLabel: editor.I18n.t('export_to_zip'),
     filenamePfx: 'grapesjs_template',
     filename: null,
     root: {
