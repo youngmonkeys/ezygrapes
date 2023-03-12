@@ -8,26 +8,30 @@ export default function(editor, opts = {}) {
 
   domc.addType(countdownType, {
 
-    model: defaultModel.extend({
-      getDefaults: {
+    isComponent: el => {
+      return el.classList?.contains(`${pfx}-container`);
+    },
+
+    model: {
+      defaults: {
         ...defaultModel.prototype.defaults,
-        startfrom: opts.startTime,
+        startFrom: opts.startTime,
         endText: opts.endText,
         droppable: false,
         traits: [{
-          label: 'Start',
-          name: 'startfrom',
+          label: editor.I18n.t('start'),
+          name: 'startFrom',
           changeProp: 1,
           type: opts.dateInputType,
         },{
-          label: 'End text',
+          label: editor.I18n.t('end_text'),
           name: 'endText',
           changeProp: 1,
         }],
         script: function() {
-          var startfrom = '{[ startfrom ]}';
+          var startFrom = '{[ startFrom ]}';
           var endTxt = '{[ endText ]}';
-          var countDownDate = new Date(startfrom).getTime();
+          var countDownDate = new Date(startFrom).getTime();
           var countdownEl = this.querySelector('[data-js=countdown]');
           var endTextEl = this.querySelector('[data-js=countdown-endtext]');
           var dayEl = this.querySelector('[data-js=countdown-day]');
@@ -76,49 +80,39 @@ export default function(editor, opts = {}) {
           }
         }
       },
-    }, {
-      isComponent(el) {
-        if(el.getAttribute &&
-          el.getAttribute('data-gjs-type') == countdownType) {
-          return {
-            type: countdownType
-          };
-        }
-      },
-    }),
-
+      ...opts,
+    },
 
     view: defaultView.extend({
       init() {
-        this.listenTo(this.model, 'change:startfrom change:endText', this.updateScript);
+        this.listenTo(this.model, 'change:startFrom change:endText', this.updateScript);
         const comps = this.model.get('components');
 
         // Add a basic countdown template if it's not yet initialized
         if (!comps.length) {
           comps.reset();
           comps.add(`
-            <span data-js="countdown" class="${pfx}-cont">
+            <span data-js="countdown" class="${pfx}-container">
               <div class="${pfx}-block">
                 <div data-js="countdown-day" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${opts.labelDays}</div>
+                <div class="${pfx}-label">${editor.I18n.t('days')}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-hour" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${opts.labelHours}</div>
+                <div class="${pfx}-label">${editor.I18n.t('hours')}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-minute" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${opts.labelMinutes}</div>
+                <div class="${pfx}-label">${editor.I18n.t('minutes')}</div>
               </div>
               <div class="${pfx}-block">
                 <div data-js="countdown-second" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${opts.labelSeconds}</div>
+                <div class="${pfx}-label">${editor.I18n.t('seconds')}</div>
               </div>
             </span>
             <span data-js="countdown-endtext" class="${pfx}-endtext"></span>
           `);
         }
-
       }
     }),
   });

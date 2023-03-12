@@ -10,7 +10,7 @@ export default (editor, config) => {
   // Init import button
   const btnImp = document.createElement('button');
   btnImp.type = 'button';
-  btnImp.innerHTML = config.modalImportButton;
+  btnImp.innerHTML = editor.I18n.t('import');
   btnImp.className = `${pfx}btn-prim ${pfx}btn-import`;
   btnImp.onclick = e => {
     editor.setComponents(viewerEditor.getValue().trim());
@@ -42,7 +42,7 @@ export default (editor, config) => {
         viewerEditor = codeViewer.editor;
       }
 
-      modal.setTitle(config.modalImportTitle);
+      modal.setTitle(editor.I18n.t('import'));
       modal.setContent(container);
       const cnt = typeof importCnt == 'function' ? importCnt(editor) : importCnt;
       codeViewer.setContent(cnt || '');

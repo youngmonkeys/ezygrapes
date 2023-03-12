@@ -13,7 +13,7 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
     btnEl: '',
 
     // Text for the button in case the custom one is not provided
-    btnText: 'Add images',
+    btnText: editor.I18n.t('add_images'),
 
     // Filestack's options
     filestackOpts: {
@@ -87,5 +87,4 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
     });
     return editor.AssetManager.add(urls);
   };
-
 });

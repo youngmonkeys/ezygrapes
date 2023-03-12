@@ -9,7 +9,7 @@ import {
 
 export default (editor, config) => {
   const cm = editor.Commands;
-  const txtConfirm = config.textCleanCanvas;
+  const txtConfirm = editor.I18n.t('are_you_sure_to_clean_the_canvas');
 
   cm.add(cmdImport, openImport(editor, config));
   cm.add(cmdDeviceDesktop, e => e.setDevice('Desktop'));

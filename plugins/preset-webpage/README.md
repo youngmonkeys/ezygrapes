@@ -18,27 +18,26 @@
   * `set-device-mobile` Setup mobile device
   * `canvas-clear` Clear all components and styles inside canvas
 * Blocks:
+  * `grid sytem`
+  * `image`
+  * `link`
   * `link-block`
+  * `map`
   * `quote`
+  * `text`
   * `text-basic`
+  * `text-section`
+  * `video`
 
 ## Options
 
 | Option | Description | Default |
 | - | - | - |
 | `blocks` | Which blocks to add | `['link-block', 'quote', 'text-basic']` |
-| `modalImportTitle` | Modal import title | `'Import'` |
-| `modalImportButton` | Modal import button text | `'Import'` |
 | `modalImportLabel` | Import description inside import modal | `''` |
 | `modalImportContent` | Default content to setup on import model open. Could also be a function with a dynamic content return (must be a string) eg. `modalImportContent: editor => editor.getHtml()` | `''` |
 | `importViewerOptions` | Code viewer (eg. CodeMirror) options | `{}` |
-| `textCleanCanvas` | Confirm text before cleaning the canvas | `'Are you sure to clean the canvas?'` |
 | `showStylesOnChange` | Show the Style Manager on component change | `true` |
-| `textGeneral` | Text for General sector in Style Manager | `'General'` |
-| `textLayout` | Text for Layout sector in Style Manager | `'Layout'` |
-| `textTypography` | Text for Typography sector in Style Manager | `'Typography'` |
-| `textDecorations` | Text for Decorations sector in Style Manager | `'Decorations'` |
-| `textExtra` | Text for Extra sector in Style Manager | `'Extra'` |
 | `customStyleManager` | Use custom set of sectors for the Style Manager | `[]` |
 | `blocksBasicOpts` | `grapesjs-blocks-basic` plugin options. By setting this option to `false` will avoid loading the plugin | `{}` |
 | `navbarOpts` | `grapesjs-navbar` plugin options. By setting this option to `false` will avoid loading the plugin | `{}` |
@@ -64,17 +63,28 @@ $ npm i grapesjs-preset-webpage
 
 <div id="gjs"></div>
 
-<script type="text/javascript">
-  var editor = grapesjs.init({
-      container : '#gjs',
-      ...
-      plugins: ['gjs-preset-webpage'],
-      pluginsOpts: {
-        'gjs-preset-webpage': {
-          // options
-        }
-      }
-  });
+<script defer type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function(event) {
+        var editor = ezygrapes.init({
+            height: '100%',
+            showOffsets: 1,
+            noticeOnUnload: 0,
+            cssIcons: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css',
+            storageManager: {autoload: 0},
+            container: '#gjs',
+            fromElement: true,
+
+            plugins: ['gjs-preset-webpage'],
+            pluginsOpts: {
+                'gjs-preset-webpage': {}
+            },
+            /*i18n: {
+                locale: 'vi',
+                localeFallback: 'vi',
+                detectLocale: false,
+            },*/
+        });
+    });
 </script>
 ```
 
@@ -83,27 +93,22 @@ $ npm i grapesjs-preset-webpage
 Clone the repository
 
 ```sh
-$ git clone git@github.com:artf/grapesjs-preset-webpage.git && cd grapesjs-preset-webpage
+$ git clone git@github.com:youngmonkeys/ezygrapes.git && cd ezygrapes
 ```
 
-Install dependencies
+### Build ezygrapes
+
+1. Install dependencies: `yarn`
+2. Build: `yarn build`
+
+### Build the plugin
+
+1. Move to the plugin folder: `cd plugins/preset-webpage`
+2. Install dependencies: `yarn`
+3. Build: `yarn build`
+
+### Start the dev server
 
 ```sh
-$ npm i
+$ yarn start
 ```
-
-The plugin relies on GrapesJS via `peerDependencies`, so you have to install it manually (without adding it to package.json)
-
-```sh
-$ npm i grapesjs --no-save
-```
-
-Start the dev server
-
-```sh
-$ npm start
-```
-
-## License
-
-BSD 3-Clause

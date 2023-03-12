@@ -5,11 +5,15 @@ export default (editor, opts = {}) => {
   const burgerType = 'burger-menu';
 
   dc.addType(burgerType, {
-    model: defaultModel.extend({
-      getDefaults: {
+
+    isComponent: el => {
+      return el.classList?.contains(`navbar`);
+    },
+
+    model: {
+      defaults: {
         ...defaultModel.prototype.defaults,
-        'custom-name': opts.labelBurger,
-        draggable: false,
+        'custom-name': editor.I18n.t('burger_menu'),
         droppable: false,
         copyable: false,
         removable: false,
@@ -116,14 +120,8 @@ export default (editor, opts = {}) => {
         },
         ...opts,
       },
-    }, {
-      isComponent(el) {
-        if(el.getAttribute &&
-          el.getAttribute('data-gjs-type') == burgerType) {
-          return {type: burgerType};
-        }
-      },
-    }),
+    },
+
     view: defaultType.view,
   });
 }
