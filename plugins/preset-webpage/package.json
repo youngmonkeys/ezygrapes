@@ -1,6 +1,6 @@
 {
   "name": "ezygrapes-preset-webpage",
-  "version": "0.0.39",
+  "version": "0.0.40",
   "description": "Ezygrapes default editor plugin",
   "main": "dist/ezygrapes-preset-webpage.min.js",
   "scripts": {
