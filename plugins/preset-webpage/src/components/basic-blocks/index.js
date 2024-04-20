@@ -12,6 +12,7 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
       'link',
       'image',
       'video',
+      'embed',
       'map'
     ],
     flexGrid: 0,
