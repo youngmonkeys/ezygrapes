@@ -55,12 +55,13 @@
  * @module docsjs.Editor
  */
 import { IBaseModule } from '../abstract/Module';
-import AssetManager, { AssetEvent } from '../asset_manager';
+import AssetManager from '../asset_manager';
+import { AssetEvent } from '../asset_manager/types';
 import BlockManager, { BlockEvent } from '../block_manager';
 import CanvasModule, { CanvasEvent } from '../canvas';
 import CodeManagerModule from '../code_manager';
 import CommandsModule, { CommandEvent } from '../commands';
-import { EventHandler } from '../common';
+import { AddOptions, EventHandler, LiteralUnion } from '../common';
 import CssComposer from '../css_composer';
 import CssRule from '../css_composer/model/CssRule';
 import CssRules from '../css_composer/model/CssRules';
@@ -69,6 +70,7 @@ import ComponentManager, { ComponentEvent } from '../dom_components';
 import Component from '../dom_components/model/Component';
 import Components from '../dom_components/model/Components';
 import ComponentWrapper from '../dom_components/model/ComponentWrapper';
+import { ComponentAdd, DragMode } from '../dom_components/model/types';
 import I18nModule from '../i18n';
 import KeymapsModule, { KeymapEvent } from '../keymaps';
 import ModalModule, { ModalEvent } from '../modal_dialog';
@@ -78,16 +80,16 @@ import PanelManager from '../panels';
 import ParserModule from '../parser';
 import { CustomParserCss } from '../parser/config/config';
 import RichTextEditorModule, { RichTextEditorEvent } from '../rich_text_editor';
+import { CustomRTE } from '../rich_text_editor/config/config';
 import SelectorManager, { SelectorEvent } from '../selector_manager';
-import StorageManager, { StorageEvent } from '../storage_manager';
-import { ProjectData } from '../storage_manager/model/IStorage';
+import StorageManager, { StorageEvent, StorageOptions, ProjectData } from '../storage_manager';
 import StyleManager, { StyleManagerEvent } from '../style_manager';
 import TraitManager from '../trait_manager';
 import UndoManagerModule from '../undo_manager';
 import UtilsModule from '../utils';
 import html from '../utils/html';
 import defaults, { EditorConfig, EditorConfigKeys } from './config/config';
-import EditorModel from './model/Editor';
+import EditorModel, { EditorLoadOptions } from './model/Editor';
 import EditorView from './view/EditorView';
 
 export type ParsedRule = {
@@ -97,7 +99,9 @@ export type ParsedRule = {
   params?: string;
 };
 
-type EditorEvent =
+type GeneralEvent = 'canvasScroll' | 'undo' | 'redo' | 'load' | 'update';
+
+type EditorBuiltInEvents =
   | ComponentEvent
   | BlockEvent
   | AssetEvent
@@ -109,14 +113,15 @@ type EditorEvent =
   | RichTextEditorEvent
   | ModalEvent
   | CommandEvent
-  | GeneralEvent
-  | string;
+  | GeneralEvent;
 
-type GeneralEvent = 'canvasScroll' | 'undo' | 'redo' | 'load' | 'update';
+type EditorEvent = LiteralUnion<EditorBuiltInEvents, string>;
 
 type EditorConfigType = EditorConfig & { pStylePrefix?: string };
 
 type EditorModelParam<T extends keyof EditorModel, N extends number> = Parameters<EditorModel[T]>[N];
+
+export type EditorParam<T extends keyof Editor, N extends number> = Parameters<Editor[T]>[N];
 
 export default class Editor implements IBaseModule<EditorConfig> {
   editorView?: EditorView;
@@ -124,8 +129,6 @@ export default class Editor implements IBaseModule<EditorConfig> {
   $: any;
   em: EditorModel;
   config: EditorConfigType;
-
-  modules = [];
 
   constructor(config: EditorConfig = {}, opts: any = {}) {
     this.config = {
@@ -319,7 +322,7 @@ export default class Editor implements IBaseModule<EditorConfig> {
    *   content: 'New component'
    * });
    */
-  setComponents(components: any, opt: any = {}) {
+  setComponents(components: ComponentAdd, opt: AddOptions = {}) {
     this.em.setComponents(components, opt);
     return this;
   }
@@ -341,7 +344,7 @@ export default class Editor implements IBaseModule<EditorConfig> {
    *   content: 'New component'
    * });
    */
-  addComponents(components: any, opts?: any): Component[] {
+  addComponents(components: ComponentAdd, opts?: AddOptions): Component[] {
     return this.getWrapper()!.append(components, opts);
   }
 
@@ -537,19 +540,21 @@ export default class Editor implements IBaseModule<EditorConfig> {
    * @example
    * const storedData = await editor.store();
    */
-  async store(options: any) {
+  async store<T extends StorageOptions>(options?: T) {
     return await this.em.store(options);
   }
 
   /**
    * Load data from the current storage.
    * @param {Object} [options] Storage options.
+   * @param {Object} [loadOptions={}] Load options.
+   * @param {Boolean} [loadOptions.clear=false] Clear the editor state (eg. dirty counter, undo manager, etc.).
    * @returns {Object} Loaded data.
    * @example
    * const data = await editor.load();
    */
-  async load(options: any) {
-    return await this.em.load(options);
+  async load<T extends StorageOptions>(options?: T, loadOptions: EditorLoadOptions = {}) {
+    return await this.em.load(options, loadOptions);
   }
 
   /**
@@ -648,7 +653,7 @@ export default class Editor implements IBaseModule<EditorConfig> {
    *  }
    * });
    */
-  setCustomRte(obj: any) {
+  setCustomRte<T>(obj: CustomRTE & ThisType<T & CustomRTE>) {
     this.RichTextEditor.customRte = obj;
   }
 
@@ -682,7 +687,7 @@ export default class Editor implements IBaseModule<EditorConfig> {
    * @param {String} value Drag mode, options: 'absolute' | 'translate'
    * @returns {this}
    */
-  setDragMode(value: string) {
+  setDragMode(value: DragMode) {
     this.em.setDragMode(value);
     return this;
   }

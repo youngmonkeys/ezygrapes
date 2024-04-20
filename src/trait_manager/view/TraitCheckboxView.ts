@@ -19,6 +19,11 @@ export default class TraitCheckboxView extends TraitView {
     this.model.set('value', this.getInputElem().checked);
   }
 
+  setInputValue(value: any) {
+    const el = this.getInputElem();
+    el && (el.checked = !!value);
+  }
+
   /**
    * Returns input element
    * @return {HTMLElement}
@@ -34,7 +39,7 @@ export default class TraitCheckboxView extends TraitView {
       const { valueFalse } = model.attributes;
       const name = model.getName();
 
-      if (model.get('changeProp')) {
+      if (model.changeProp) {
         checked = target.get(name);
         targetValue = checked;
       } else {

@@ -83,6 +83,7 @@ const isStyleHidden = (style: any = {}) => {
 
 export default class LayerManager extends Module<LayerManagerConfig> {
   model!: ModuleModel;
+  __ctn?: HTMLElement;
 
   view?: View;
 
@@ -118,7 +119,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
    * layers.setRoot(component);
    */
   setRoot(component: Component | string): Component {
-    const wrapper: Component = this.em.getWrapper();
+    const wrapper: Component = this.em.getWrapper()!;
     let root = isComponent(component) ? (component as Component) : wrapper;
 
     if (component && isString(component) && hasWin()) {
@@ -223,7 +224,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
    * @returns {Boolean}
    */
   isLocked(component: Component): boolean {
-    return component.get('locked');
+    return !!component.get('locked');
   }
 
   /**
@@ -356,6 +357,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
     const root = this.getRoot();
     this.view?.setRoot(root);
     this.em.trigger(evRoot, root);
+    this.__trgCustom();
   }
 
   __onComponent(component: Component) {
@@ -365,14 +367,16 @@ export default class LayerManager extends Module<LayerManagerConfig> {
   __isLayerable(cmp: Component): boolean {
     const tag = cmp.get('tagName');
     const hideText = this.config.hideTextnode;
-    const isValid = !hideText || (!cmp.is('textnode') && tag !== 'br');
+    const isValid = !hideText || (!cmp.isInstanceOf('textnode') && tag !== 'br');
 
     return isValid && cmp.get('layerable')!;
   }
 
   __trgCustom(opts?: any) {
-    this.em.trigger(this.events.custom, {
-      container: opts.container,
+    const { __ctn, em, events } = this;
+    this.__ctn = __ctn || opts?.container;
+    em.trigger(events.custom, {
+      container: this.__ctn,
       root: this.getRoot(),
     });
   }

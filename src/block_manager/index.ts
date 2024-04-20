@@ -19,72 +19,27 @@
  * blockManager.add(...);
  * ```
  *
- * ## Available Events
- * * `block:add` - Block added. The [Block] is passed as an argument to the callback.
- * * `block:remove` - Block removed. The [Block] is passed as an argument to the callback.
- * * `block:update` - Block updated. The [Block] and the object containing changes are passed as arguments to the callback.
- * * `block:drag:start` - Started dragging block, the [Block] is passed as an argument.
- * * `block:drag` - Dragging block, the [Block] is passed as an argument.
- * * `block:drag:stop` - Dragging of the block is stopped. The dropped [Component] (if dropped successfully) and the [Block] are passed as arguments.
- * * `block` - Catch-all event for all the events mentioned above. An object containing all the available data about the triggered event is passed as an argument to the callback.
- *
- * ## Methods
- * * [add](#add)
- * * [get](#get)
- * * [getAll](#getall)
- * * [getAllVisible](#getallvisible)
- * * [remove](#remove)
- * * [getConfig](#getconfig)
- * * [getCategories](#getcategories)
- * * [getContainer](#getcontainer)
- * * [render](#render)
+ * {REPLACE_EVENTS}
  *
  * [Block]: block.html
  * [Component]: component.html
  *
  * @module Blocks
  */
-import { isArray } from 'underscore';
+import { debounce, isArray } from 'underscore';
+import { ItemManagerModule } from '../abstract/Module';
+import FrameView from '../canvas/view/FrameView';
+import Component from '../dom_components/model/Component';
+import EditorModel from '../editor/model/Editor';
 import defaults, { BlockManagerConfig } from './config/config';
 import Block, { BlockProperties } from './model/Block';
 import Blocks from './model/Blocks';
-import Category from './model/Category';
-import Categories from './model/Categories';
+import Categories from '../abstract/ModuleCategories';
+import Category, { getItemsByCategory } from '../abstract/ModuleCategory';
+import { BlocksByCategory, BlocksEvents } from './types';
 import BlocksView from './view/BlocksView';
-import { ItemManagerModule } from '../abstract/Module';
-import EditorModel from '../editor/model/Editor';
-import Component from '../dom_components/model/Component';
 
-export type BlockEvent =
-  | 'block:add'
-  | 'block:remove'
-  | 'block:drag:start'
-  | 'block:drag'
-  | 'block:drag:stop'
-  | 'block:custom';
-
-export const evAll = 'block';
-export const evPfx = `${evAll}:`;
-export const evAdd = `${evPfx}add`;
-export const evUpdate = `${evPfx}update`;
-export const evRemove = `${evPfx}remove`;
-export const evRemoveBefore = `${evRemove}:before`;
-export const evDrag = `${evPfx}drag`;
-export const evDragStart = `${evDrag}:start`;
-export const evDragStop = `${evDrag}:stop`;
-export const evCustom = `${evPfx}custom`;
-
-const events = {
-  all: evAll,
-  update: evUpdate,
-  add: evAdd,
-  remove: evRemove,
-  removeBefore: evRemoveBefore,
-  drag: evDrag,
-  dragStart: evDragStart,
-  dragEnd: evDragStop,
-  custom: evCustom,
-};
+export type BlockEvent = `${BlocksEvents}`;
 
 export default class BlockManager extends ItemManagerModule<BlockManagerConfig, Blocks> {
   blocks: Blocks;
@@ -93,6 +48,7 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
   blocksView?: BlocksView;
   _dragBlock?: Block;
   _bhv?: Record<string, any>;
+  events = BlocksEvents;
 
   Block = Block;
 
@@ -105,17 +61,19 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
   storageKey = '';
 
   constructor(em: EditorModel) {
-    super(em, 'BlockManager', new Blocks(em.config.blockManager?.blocks || []), events, defaults);
+    super(em, 'BlockManager', new Blocks(em.config.blockManager?.blocks || [], { em }), BlocksEvents, defaults);
 
     // Global blocks collection
     this.blocks = this.all;
-    this.blocksVisible = new Blocks(this.blocks.models);
+    this.blocksVisible = new Blocks(this.blocks.models, { em });
     this.categories = new Categories();
 
     // Setup the sync between the global and public collections
     this.blocks.on('add', model => this.blocksVisible.add(model));
     this.blocks.on('remove', model => this.blocksVisible.remove(model));
     this.blocks.on('reset', coll => this.blocksVisible.reset(coll.models));
+
+    this.__onAllEvent = debounce(() => this.__trgCustom(), 0);
 
     return this;
   }
@@ -137,13 +95,13 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
       bm: this as BlockManager,
       blocks: this.getAll().models,
       container: bhv.container,
-      dragStart: (block: Block, ev: Event) => this.startDrag(block, ev),
+      dragStart: (block: Block, ev?: Event) => this.startDrag(block, ev),
       drag: (ev: Event) => this.__drag(ev),
-      dragStop: (cancel: boolean) => this.endDrag(cancel),
+      dragStop: (cancel?: boolean) => this.endDrag(cancel),
     };
   }
 
-  __startDrag(block: Block, ev: Event) {
+  __startDrag(block: Block, ev?: Event) {
     const { em, events, blocks } = this;
     const content = block.getContent ? block.getContent() : block;
     this._dragBlock = block;
@@ -191,11 +149,10 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
     }
   }
 
-  __getFrameViews() {
-    return this.em
-      .get('Canvas')
-      .getFrames()
-      .map((frame: any) => frame.view);
+  __getFrameViews(): FrameView[] {
+    return this.em.Canvas.getFrames()
+      .map(frame => frame.view!)
+      .filter(Boolean);
   }
 
   __behaviour(opts = {}) {
@@ -209,13 +166,13 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
     return this._bhv || {};
   }
 
-  startDrag(block: Block, ev: Event) {
+  startDrag(block: Block, ev?: Event) {
     this.__startDrag(block, ev);
-    this.__getFrameViews().forEach((fv: any) => fv.droppable.startCustom());
+    this.__getFrameViews().forEach(fv => fv.droppable?.startCustom());
   }
 
-  endDrag(cancel: boolean) {
-    this.__getFrameViews().forEach((fv: any) => fv.droppable.endCustom(cancel));
+  endDrag(cancel?: boolean) {
+    this.__getFrameViews().forEach(fv => fv.droppable?.endCustom(cancel));
     this.__endDrag();
   }
 
@@ -313,6 +270,32 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
   }
 
   /**
+   * Returns currently dragging block.
+   * Updated when the drag starts and cleared once it's done.
+   * @returns {[Block]|undefined}
+   */
+  getDragBlock() {
+    return this._dragBlock;
+  }
+
+  /**
+   * Get blocks by category.
+   * @example
+   * blockManager.getBlocksByCategory();
+   * // Returns an array of items of this type
+   * // > { category?: Category; items: Block[] }
+   *
+   * // NOTE: The item without category is the one containing blocks without category.
+   *
+   * // You can also get the same output format by passing your own array of Blocks
+   * const myFilteredBlocks: Block[] = [...];
+   * blockManager.getBlocksByCategorymyFilteredBlocks
+   */
+  getBlocksByCategory(blocks?: Block[]): BlocksByCategory[] {
+    return getItemsByCategory<Block>(blocks || this.getAll().models);
+  }
+
+  /**
    * Render blocks
    * @param  {Array} blocks Blocks to render, without the argument will render all global blocks
    * @param  {Object} [opts={}] Options
@@ -340,12 +323,12 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
    * const newBlocksEl = blockManager.render(filtered, { external: true });
    * document.getElementById('some-id').appendChild(newBlocksEl);
    */
-  render(blocks: Block[], opts: { external?: boolean } = {}) {
+  render(blocks?: Block[], opts: { external?: boolean } = {}) {
     const { categories, config, em } = this;
     const toRender = blocks || this.getAll().models;
 
     if (opts.external) {
-      const collection = new Blocks(toRender);
+      const collection = new Blocks(toRender, { em });
       return new BlocksView({ collection, categories }, { em, ...config, ...opts }).render().el;
     }
 

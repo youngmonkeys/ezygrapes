@@ -1,7 +1,7 @@
 import Editor from '../../editor';
 
 export interface ParsedCssRule {
-  selectors: string;
+  selectors: string | string[];
   style: Record<string, string>;
   atRule?: string;
   params?: string;
@@ -33,10 +33,24 @@ export interface HTMLParserOptions {
   allowUnsafeAttr?: boolean;
 
   /**
+   * Allow unsafe HTML attribute values (eg. `src="javascript:..."`).
+   * @default false
+   */
+  allowUnsafeAttrValue?: boolean;
+
+  /**
    * When false, removes empty text nodes when parsed, unless they contain a space.
    * @default false
    */
   keepEmptyTextNodes?: boolean;
+
+  /**
+   * Custom transformer to run before passing the input HTML to the parser.
+   * A common use case might be to sanitize the input string.
+   * @example
+   * preParser: htmlString => DOMPurify.sanitize(htmlString)
+   */
+  preParser?: (input: string, opts: { editor: Editor }) => string;
 }
 
 export interface ParserConfig {
@@ -45,6 +59,12 @@ export interface ParserConfig {
    * @default ['br', 'b', 'i', 'u', 'a', 'ul', 'ol']
    */
   textTags?: string[];
+
+  /**
+   * Let the editor know which Component types should be treated as part of the text component.
+   * @default ['text', 'textnode', 'comment']
+   */
+  textTypes?: string[];
 
   /**
    * Custom CSS parser.
@@ -71,12 +91,14 @@ export interface ParserConfig {
 
 const config: ParserConfig = {
   textTags: ['br', 'b', 'i', 'u', 'a', 'ul', 'ol'],
+  textTypes: ['text', 'textnode', 'comment'],
   parserCss: undefined,
   parserHtml: undefined,
   optionsHtml: {
     htmlType: 'text/html',
     allowScripts: false,
     allowUnsafeAttr: false,
+    allowUnsafeAttrValue: false,
     keepEmptyTextNodes: false,
   },
 };

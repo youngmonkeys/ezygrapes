@@ -1,14 +1,13 @@
 import { isElement, isUndefined, isString } from 'underscore';
-import { Collection, View } from '../common';
+import { Collection, Debounced, Model, View } from '../common';
 import { EditorConfigKeys } from '../editor/config/config';
 import EditorModel from '../editor/model/Editor';
+import { ProjectData } from '../storage_manager/model/IStorage';
 import { createId, isDef, deepMerge } from '../utils/mixins';
 
-export interface IModule<TConfig extends any = any> extends IBaseModule<TConfig> {
-  init(cfg: any): void;
+export interface IModule<TConfig extends ModuleConfig = ModuleConfig> extends IBaseModule<TConfig> {
   destroy(): void;
   postLoad(key: any): any;
-  config: TConfig;
   onLoad?(): void;
   name: string;
   postRender?(view: any): void;
@@ -25,18 +24,25 @@ export interface ModuleConfig {
   appendTo?: string | HTMLElement;
 }
 
-export interface IStorableModule extends IModule {
+export interface IStorableModule {
   storageKey: string[] | string;
   store(result: any): any;
-  load(keys: string[]): void;
-  postLoad(key: any): any;
+  load(keys: ProjectData): void;
+  clear(): void;
+}
+
+export interface ILoadableModule {
+  onLoad(): void;
 }
 
 export default abstract class Module<T extends ModuleConfig = ModuleConfig> implements IModule<T> {
   private _em: EditorModel;
   private _config: T & { pStylePrefix?: string };
   private _name: string;
+  debounced: Debounced[] = [];
+  collections: Collection[] = [];
   cls: any[] = [];
+  state?: Model;
   events: any;
   model?: any;
   view?: any;
@@ -63,11 +69,7 @@ export default abstract class Module<T extends ModuleConfig = ModuleConfig> impl
   public get config() {
     return this._config;
   }
-  //abstract name: string;
-  isPrivate: boolean = false;
-  onLoad?(): void;
-  init(cfg: T) {}
-  abstract destroy(): void;
+
   render(opts?: any): HTMLElement | JQuery<HTMLElement> | void {}
   postLoad(key: any): void {}
 
@@ -88,6 +90,21 @@ export default abstract class Module<T extends ModuleConfig = ModuleConfig> impl
 
   postRender?(view: any): void;
 
+  destroy() {
+    this.__destroy();
+  }
+
+  __destroy() {
+    this.view?.remove();
+    this.state?.stopListening();
+    this.state?.clear();
+    this.debounced.forEach(d => d.cancel());
+    this.collections.forEach(c => {
+      c.stopListening();
+      c.reset();
+    });
+  }
+
   /**
    * Move the main DOM element of the module.
    * To execute only post editor render (in postRender)
@@ -104,7 +121,7 @@ export default abstract class Module<T extends ModuleConfig = ModuleConfig> impl
 }
 
 export abstract class ItemManagerModule<
-  TConf extends ModuleConfig = any,
+  TConf extends ModuleConfig = ModuleConfig,
   TCollection extends Collection = Collection
 > extends Module<TConf> {
   cls: any[] = [];

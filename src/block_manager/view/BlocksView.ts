@@ -4,9 +4,9 @@ import { View } from '../../common';
 import Component from '../../dom_components/model/Component';
 import EditorModel from '../../editor/model/Editor';
 import Block from '../model/Block';
-import Categories from '../model/Categories';
+import Categories from '../../abstract/ModuleCategories';
 import BlockView from './BlockView';
-import CategoryView from './CategoryView';
+import CategoryView from '../../abstract/ModuleCategoryView';
 
 export interface BlocksViewConfig {
   em: EditorModel;
@@ -19,7 +19,7 @@ export default class BlocksView extends View {
   em: EditorModel;
   config: BlocksViewConfig;
   categories: Categories;
-  renderedCategories: Record<string, CategoryView>;
+  renderedCategories = new Map<string, CategoryView>();
   ppfx: string;
   noCatClass: string;
   blockContClass: string;
@@ -34,7 +34,6 @@ export default class BlocksView extends View {
     bindAll(this, 'getSorter', 'onDrag', 'onDrop', 'onMove');
     this.config = config || {};
     this.categories = opts.categories || '';
-    this.renderedCategories = {};
     const ppfx = this.config.pStylePrefix || '';
     this.ppfx = ppfx;
     this.noCatClass = `${ppfx}blocks-no-cat`;
@@ -102,7 +101,6 @@ export default class BlocksView extends View {
 
   onMove(ev: Event) {
     this.__getModule().__drag(ev);
-    this.em.trigger('block:drag:move', ev); // old event
   }
 
   onDrop(component?: Component) {
@@ -127,39 +125,25 @@ export default class BlocksView extends View {
    * @private
    * */
   add(model: Block, fragment?: DocumentFragment) {
-    const { config } = this;
-    const view = new BlockView(
-      {
-        model,
-        attributes: model.get('attributes'),
-      },
-      config
-    );
+    const { config, renderedCategories } = this;
+    const attributes = model.get('attributes');
+    const view = new BlockView({ model, attributes }, config);
     const rendered = view.render().el;
-    let category = model.get('category');
+    const category = model.parent.initCategory(model);
 
     // Check for categories
     if (category && this.categories && !config.ignoreCategories) {
-      if (isString(category)) {
-        category = { id: category, label: category };
-      } else if (isObject(category) && !category.id) {
-        category.id = category.label;
-      }
-
-      const catModel = this.categories.add(category);
-      const catId = catModel.get('id')!;
+      const catId = category.getId();
       const categories = this.getCategoriesEl();
-      let catView = this.renderedCategories[catId];
-      // @ts-ignore
-      model.set('category', catModel, { silent: true });
+      let catView = renderedCategories.get(catId);
 
       if (!catView && categories) {
-        catView = new CategoryView({ model: catModel }, config).render();
-        this.renderedCategories[catId] = catView;
+        catView = new CategoryView({ model: category }, config, 'block').render();
+        renderedCategories.set(catId, catView);
         categories.appendChild(catView.el);
       }
 
-      catView && catView.append(rendered);
+      catView?.append(rendered);
       return;
     }
 
@@ -192,7 +176,7 @@ export default class BlocksView extends View {
     const frag = document.createDocumentFragment();
     delete this.catsEl;
     delete this.blocksEl;
-    this.renderedCategories = {};
+    this.renderedCategories = new Map();
     this.el.innerHTML = `
       <div class="${this.catsClass}"></div>
       <div class="${this.noCatClass}">

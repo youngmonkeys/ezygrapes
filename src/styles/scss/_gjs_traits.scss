@@ -1,6 +1,6 @@
 .#{$app-prefix} {
   &traits-label {
-    border-bottom: 1px solid $mainDkColor;
+    border-bottom: 1px solid var(--gjs-main-dark-color);
     font-weight: lighter;
     margin-bottom: 5px;
     padding: 10px;
@@ -21,6 +21,32 @@
       flex-grow: 1;
     }
   }
+
+  &traits-c, &traits-cs {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &trait-categories {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &trait-category {
+    width: 100%;
+
+    &.#{$app-prefix}open {
+      @extend .#{$app-prefix}category-open;
+    }
+
+    .#{$app-prefix}title {
+      @extend .#{$app-prefix}category-title;
+    }
+
+    .#{$app-prefix}caret-icon {
+      margin-right: 5px;
+    }
+  }
 }
 
 .#{$trt-prefix}header {
@@ -35,9 +61,10 @@
   font-weight: lighter;
   align-items: center;
   text-align: left;
+  gap: 5px;
 
   &s {
-    font-size: $fontSizeS;
+    font-size: var(--gjs-font-size);
   }
 
   .#{$app-prefix}label {

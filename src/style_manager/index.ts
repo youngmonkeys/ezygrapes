@@ -74,11 +74,17 @@ import PropertyFactory from './model/PropertyFactory';
 import SectorsView from './view/SectorsView';
 import { ItemManagerModule } from '../abstract/Module';
 import EditorModel from '../editor/model/Editor';
-import Property, { PropertyProps, StyleProps } from './model/Property';
+import Property, { PropertyProps } from './model/Property';
 import Component from '../dom_components/model/Component';
 import CssRule from '../css_composer/model/CssRule';
-import StyleableModel from '../domain_abstract/model/StyleableModel';
+import StyleableModel, { StyleProps } from '../domain_abstract/model/StyleableModel';
 import { CustomPropertyView } from './view/PropertyView';
+import { PropertySelectProps } from './model/PropertySelect';
+import { PropertyNumberProps } from './model/PropertyNumber';
+import PropertyStack, { PropertyStackProps } from './model/PropertyStack';
+import PropertyComposite from './model/PropertyComposite';
+
+export type PropertyTypes = PropertyStackProps | PropertySelectProps | PropertyNumberProps;
 
 export type StyleManagerEvent =
   | 'style:sector:add'
@@ -89,7 +95,7 @@ export type StyleManagerEvent =
   | 'style:property:update'
   | 'style:target';
 
-type StyleTarget = StyleableModel;
+export type StyleTarget = StyleableModel;
 
 export const evAll = 'style';
 export const evPfx = `${evAll}:`;
@@ -109,7 +115,7 @@ export type StyleModuleParam<T extends keyof StyleManager, N extends number> = P
 
 const propDef = (value: any) => value || value === 0;
 
-const events = {
+const stylesEvents = {
   all: evAll,
   sectorAdd: evSectorAdd,
   sectorRemove: evSectorRemove,
@@ -130,6 +136,7 @@ export default class StyleManager extends ItemManagerModule<
   builtIn: PropertyFactory;
   upAll: Debounced;
   properties: typeof Properties;
+  events!: typeof stylesEvents;
   sectors: Sectors;
   SectView!: SectorsView;
   Sector = Sector;
@@ -149,7 +156,7 @@ export default class StyleManager extends ItemManagerModule<
    * @private
    */
   constructor(em: EditorModel) {
-    super(em, 'StyleManager', new Sectors([], { em }), events, defaults);
+    super(em, 'StyleManager', new Sectors([], { em }), stylesEvents, defaults);
     bindAll(this, '__clearStateTarget');
     const c = this.config;
     const ppfx = c.pStylePrefix;
@@ -301,9 +308,9 @@ export default class StyleManager extends ItemManagerModule<
    *   ],
    * }, { at: 0 });
    */
-  addProperty(sectorId: string, property: PropertyProps, opts: AddOptions = {}): Property | undefined {
+  addProperty(sectorId: string, property: PropertyTypes, opts: AddOptions = {}): Property | undefined {
     const sector = this.getSector(sectorId, { warn: true });
-    let prop = null;
+    let prop;
     if (sector) prop = sector.addProperty(property, opts);
 
     return prop;
@@ -441,8 +448,8 @@ export default class StyleManager extends ItemManagerModule<
    * By default, the Style Manager shows styles of the last selected target.
    * @returns {[Component]|[CSSRule]|null}
    */
-  getSelected() {
-    return this.model.get('lastTarget') || null;
+  getSelected(): StyleTarget | undefined {
+    return this.model.get('lastTarget');
   }
 
   /**
@@ -450,14 +457,14 @@ export default class StyleManager extends ItemManagerModule<
    * @returns {Array<[Component]|[CSSRule]>}
    */
   getSelectedAll() {
-    return this.model.get('targets') as Array<StyleTarget>;
+    return this.model.get('targets') as StyleTarget[];
   }
 
   /**
    * Get parent rules of the last selected target.
    * @returns {Array<[CSSRule]>}
    */
-  getSelectedParents(): Array<CssRule> {
+  getSelectedParents(): CssRule[] {
     return this.model.get('lastTargetParents') || [];
   }
 
@@ -474,9 +481,12 @@ export default class StyleManager extends ItemManagerModule<
    */
   addStyleTargets(style: StyleProps, opts: any) {
     this.getSelectedAll().map(t => t.addStyle(style, opts));
+    const target = this.getSelected();
+
+    // Trigger style changes on selected components
+    target && this.__emitCmpStyleUpdate(style);
 
     // Update state rule
-    const target = this.getSelected();
     const targetState = this.__getStateTarget();
     target && targetState?.setStyle(target.getStyle(), opts);
   }
@@ -543,33 +553,33 @@ export default class StyleManager extends ItemManagerModule<
       const useClasses = !smConf.componentFirst || options.useClasses;
       const addOpts = { noCount: 1 };
       const opts = { state, addOpts };
-      let rule;
 
-      // I stop undo manager here as after adding the CSSRule (generally after
+      // Skipping undo manager here as after adding the CSSRule (generally after
       // selecting the component) and calling undo() it will remove the rule from
       // the collection, therefore updating it in style manager will not affect it
       // #268
-      um.stop();
+      um.skip(() => {
+        let rule;
 
-      if (hasClasses && useClasses) {
-        const deviceW = em.getCurrentMedia();
-        rule = cssC.get(valid, state, deviceW);
+        if (hasClasses && useClasses) {
+          const deviceW = em.getCurrentMedia();
+          rule = cssC.get(valid, state, deviceW);
 
-        if (!rule && !skipAdd) {
-          rule = cssC.add(valid, state, deviceW, {}, addOpts);
+          if (!rule && !skipAdd) {
+            rule = cssC.add(valid, state, deviceW, {}, addOpts);
+          }
+        } else if (config.avoidInlineStyle) {
+          const id = model.getId();
+          rule = cssC.getIdRule(id, opts);
+          !rule && !skipAdd && (rule = cssC.setIdRule(id, {}, opts));
+          if (model.is('wrapper')) {
+            // @ts-ignore
+            rule!.set('wrapper', 1, addOpts);
+          }
         }
-      } else if (config.avoidInlineStyle) {
-        const id = model.getId();
-        rule = cssC.getIdRule(id, opts);
-        !rule && !skipAdd && (rule = cssC.setIdRule(id, {}, opts));
-        if (model.is('wrapper')) {
-          // @ts-ignore
-          rule!.set('wrapper', 1, addOpts);
-        }
-      }
 
-      rule && (model = rule);
-      um.start();
+        rule && (model = rule);
+      });
     }
 
     return model;
@@ -585,19 +595,28 @@ export default class StyleManager extends ItemManagerModule<
       const cssGen = em.CodeManager.getGenerator('css');
       // @ts-ignore
       const cmp = target.toHTML ? target : target.getComponent();
-      const optsSel = { combination: true, array: true };
-      let cmpRules = [];
-      let otherRules = [];
-      let rules = [];
+      const optsSel = { array: true } as const;
+      let cmpRules: CssRule[] = [];
+      let otherRules: CssRule[] = [];
+      let rules: CssRule[] = [];
+
+      const rulesBySelectors = (values: string[]) => {
+        return !values.length
+          ? []
+          : cssC.getRules().filter(rule => {
+              const rSels = rule.getSelectors().map(s => s.getFullName());
+              return !!rSels.length && rSels.every(rSel => values.indexOf(rSel) >= 0);
+            });
+      };
 
       // Componente related rule
       if (cmp) {
         cmpRules = cssC.getRules(`#${cmp.getId()}`);
-        otherRules = sel ? cssC.getRules(sel.getSelectors().getFullName(optsSel) as string) : [];
+        otherRules = sel ? rulesBySelectors(sel.getSelectors().getFullName(optsSel)) : [];
         rules = otherRules.concat(cmpRules);
       } else {
         cmpRules = sel ? cssC.getRules(`#${sel.getId()}`) : [];
-        otherRules = cssC.getRules(target.getSelectors().getFullName(optsSel) as string);
+        otherRules = rulesBySelectors(target.getSelectors().getFullName(optsSel));
         rules = cmpRules.concat(otherRules);
       }
 
@@ -714,6 +733,25 @@ export default class StyleManager extends ItemManagerModule<
     em && em.logWarning(`'${sectorId}' sector not found`);
   }
 
+  __emitCmpStyleUpdate(style: StyleProps, opts: { components?: Component | Component[] } = {}) {
+    const { em } = this;
+
+    // Ignore partial updates
+    if (!style.__p) {
+      const allSel = this.getSelectedAll();
+      const cmp = opts.components || em.getSelectedAll();
+      const cmps = Array.isArray(cmp) ? cmp : [cmp];
+      const newStyles = { ...style };
+      delete newStyles.__p;
+
+      cmps.forEach(
+        cmp =>
+          // if cmp is part of selected, the event should already been triggered
+          !allSel.includes(cmp as any) && cmp.__onStyleChange(newStyles)
+      );
+    }
+  }
+
   __upProps(opts = {}) {
     const lastTarget = this.getSelected();
     if (!lastTarget) return;
@@ -750,7 +788,7 @@ export default class StyleManager extends ItemManagerModule<
     });
   }
 
-  __upProp(prop: any, style: StyleProps, parentStyles: any[], opts: any) {
+  __upProp(prop: Property, style: StyleProps, parentStyles: any[], opts: any) {
     const name = prop.getName();
     const value = style[name];
     const hasVal = propDef(value);
@@ -758,19 +796,21 @@ export default class StyleManager extends ItemManagerModule<
     const isComposite = prop.getType() === 'composite';
     const opt = { ...opts, __up: true };
     const canUpdate = !isComposite && !isStack;
-    let newLayers = isStack ? prop.__getLayersFromStyle(style) : [];
-    let newProps = isComposite ? prop.__getPropsFromStyle(style) : {};
+    const propStack = prop as PropertyStack;
+    const propComp = prop as PropertyComposite;
+    let newLayers = isStack ? propStack.__getLayersFromStyle(style) : [];
+    let newProps = isComposite ? propComp.__getPropsFromStyle(style) : {};
     let newValue = hasVal ? value : null;
     let parentTarget: any = null;
 
     if ((isStack && newLayers === null) || (isComposite && newProps === null)) {
       const method = isStack ? '__getLayersFromStyle' : '__getPropsFromStyle';
-      const parentItem = parentStyles.filter(p => prop[method](p.style) !== null)[0];
+      const parentItem = parentStyles.filter(p => propStack[method](p.style) !== null)[0];
 
       if (parentItem) {
         newValue = parentItem.style[name];
         parentTarget = parentItem.target;
-        const val = prop[method](parentItem.style);
+        const val = propStack[method](parentItem.style);
         if (isStack) {
           newLayers = val;
         } else {
@@ -788,22 +828,26 @@ export default class StyleManager extends ItemManagerModule<
     }
 
     prop.__setParentTarget(parentTarget);
-    canUpdate && prop.__getFullValue() !== newValue && prop.upValue(newValue, opt);
-    isStack && prop.__setLayers(newLayers || []);
+    canUpdate && prop.__getFullValue() !== newValue && prop.upValue(newValue as string, opt);
+    if (isStack) {
+      propStack.__setLayers(newLayers || [], {
+        isEmptyValue: propStack.isEmptyValueStyle(style),
+      });
+    }
     if (isComposite) {
-      const props = prop.getProperties();
+      const props = propComp.getProperties();
 
       // Detached has to be treathed as separate properties
-      if (prop.isDetached()) {
-        const newStyle = prop.__getPropsFromStyle(style, { byName: true }) || {};
+      if (propComp.isDetached()) {
+        const newStyle = propComp.__getPropsFromStyle(style, { byName: true }) || {};
         const newParentStyles = parentStyles.map(p => ({
           ...p,
-          style: prop.__getPropsFromStyle(p.style, { byName: true }) || {},
+          style: propComp.__getPropsFromStyle(p.style, { byName: true }) || {},
         }));
         props.map((pr: any) => this.__upProp(pr, newStyle, newParentStyles, opts));
       } else {
-        prop.__setProperties(newProps || {}, opt);
-        prop.getProperties().map((pr: any) => pr.__setParentTarget(parentTarget));
+        propComp.__setProperties(newProps || {}, opt);
+        propComp.getProperties().map(pr => pr.__setParentTarget(parentTarget));
       }
     }
   }

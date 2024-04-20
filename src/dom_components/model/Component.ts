@@ -12,7 +12,7 @@ import {
   keys,
 } from 'underscore';
 import { shallowDiff, capitalize, isEmptyObj, isObject, toLowerCase } from '../../utils/mixins';
-import StyleableModel from '../../domain_abstract/model/StyleableModel';
+import StyleableModel, { StyleProps } from '../../domain_abstract/model/StyleableModel';
 import { Model } from 'backbone';
 import Components from './Components';
 import Selector from '../../selector_manager/model/Selector';
@@ -32,16 +32,19 @@ import {
 import Frame from '../../canvas/model/Frame';
 import { DomComponentsConfig } from '../config/config';
 import ComponentView from '../view/ComponentView';
-import { AddOptions, ObjectAny, ObjectStrings, SetOptions } from '../../common';
-import CssRule, { CssRuleJSON, CssRuleProperties } from '../../css_composer/model/CssRule';
-import Trait, { TraitProperties } from '../../trait_manager/model/Trait';
+import { AddOptions, ExtractMethods, ObjectAny, PrevToNewIdMap, SetOptions } from '../../common';
+import CssRule, { CssRuleJSON } from '../../css_composer/model/CssRule';
+import Trait from '../../trait_manager/model/Trait';
 import { ToolbarButtonProps } from './ToolbarButton';
+import { TraitProperties } from '../../trait_manager/types';
+
+export interface IComponent extends ExtractMethods<Component> {}
 
 const escapeRegExp = (str: string) => {
   return str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
 };
 
-const avoidInline = (em: EditorModel) => em && em.getConfig().avoidInlineStyle;
+export const avoidInline = (em: EditorModel) => !!em?.getConfig().avoidInlineStyle;
 
 export const eventDrag = 'component:drag';
 export const keySymbols = '__symbols';
@@ -86,12 +89,12 @@ export const keyUpdateInside = `${keyUpdate}-inside`;
  * @property {Array<String>} [unstylable=[]] Indicate an array of style properties which should be hidden from the style manager. Default: `[]`
  * @property {Boolean} [highlightable=true] It can be highlighted with 'dotted' borders if true. Default: `true`
  * @property {Boolean} [copyable=true] True if it's possible to clone the component. Default: `true`
- * @property {Boolean} [resizable=false] Indicates if it's possible to resize the component. It's also possible to pass an object as [options for the Resizer](https://github.com/GrapesJS/grapesjs/blob/master/src/utils/Resizer.js). Default: `false`
+ * @property {Boolean} [resizable=false] Indicates if it's possible to resize the component. It's also possible to pass an object as [options for the Resizer](https://github.com/GrapesJS/grapesjs/blob/master/src/utils/Resizer.ts). Default: `false`
  * @property {Boolean} [editable=false] Allow to edit the content of the component (used on Text components). Default: `false`
  * @property {Boolean} [layerable=true] Set to `false` if you need to hide the component inside Layers. Default: `true`
  * @property {Boolean} [selectable=true] Allow component to be selected when clicked. Default: `true`
  * @property {Boolean} [hoverable=true] Shows a highlight outline when hovering on the element if `true`. Default: `true`
- * @property {Boolean} [locked=false] Disable the selection of the component and its children in the canvas. Default: `false`
+ * @property {Boolean} [locked] Disable the selection of the component and its children in the canvas. You can unlock a children by setting its locked property to `false`. Default: `undefined`
  * @property {Boolean} [void=false] This property is used by the HTML exporter as void elements don't have closing tags, eg. `<br/>`, `<hr/>`, etc. Default: `false`
  * @property {Object} [style={}] Component default style, eg. `{ width: '100px', height: '100px', 'background-color': 'red' }`
  * @property {String} [styles=''] Component related styles, eg. `.my-component-class { color: red }`
@@ -108,11 +111,14 @@ export const keyUpdateInside = `${keyUpdate}-inside`;
  * Eg. `toolbar: [ { attributes: {class: 'fa fa-arrows'}, command: 'tlb-move' }, ... ]`.
  * By default, when `toolbar` property is falsy the editor will add automatically commands `core:component-exit` (select parent component, added if there is one), `tlb-move` (added if `draggable`) , `tlb-clone` (added if `copyable`), `tlb-delete` (added if `removable`).
  * @property {Collection<Component>} [components=null] Children components. Default: `null`
+ * @property {Object} [delegate=null] Delegate commands to other components. Available commands `remove` | `move` | `copy` | `select`. eg. `{ remove: (cmp) => cmp.closestType('other-type') }`
  *
  * @module docsjs.Component
  */
 export default class Component extends StyleableModel<ComponentProperties> {
-  /** @ts-ignore */
+  /**
+   * @private
+   * @ts-ignore */
   get defaults(): ComponentDefinitionDefined {
     return {
       tagName: 'div',
@@ -133,7 +139,6 @@ export default class Component extends StyleableModel<ComponentProperties> {
       layerable: true,
       selectable: true,
       hoverable: true,
-      locked: false,
       void: false,
       state: '', // Indicates if the component is in some CSS state like ':hover', ':active', etc.
       status: '', // State, eg. 'selected'
@@ -150,6 +155,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
       propagate: '',
       dmode: '',
       toolbar: null,
+      delegate: null,
       [keySymbol]: 0,
       [keySymbols]: 0,
       [keySymbolOvrd]: 0,
@@ -164,6 +170,26 @@ export default class Component extends StyleableModel<ComponentProperties> {
 
   get traits() {
     return this.get('traits')!;
+  }
+
+  get content() {
+    return this.get('content') ?? '';
+  }
+
+  get toolbar() {
+    return this.get('toolbar') || [];
+  }
+
+  get resizable() {
+    return this.get('resizable')!;
+  }
+
+  get delegate() {
+    return this.get('delegate');
+  }
+
+  get locked() {
+    return this.get('locked');
   }
 
   /**
@@ -195,7 +221,9 @@ export default class Component extends StyleableModel<ComponentProperties> {
   prevColl?: Components;
   __hasUm?: boolean;
   __symbReady?: boolean;
-  /** @ts-ignore */
+  /**
+   * @private
+   * @ts-ignore */
   collection!: Components;
 
   initialize(props = {}, opt: ComponentOptions = {}) {
@@ -232,8 +260,8 @@ export default class Component extends StyleableModel<ComponentProperties> {
     });
     this.ccid = Component.createId(this, opt);
     this.initClasses();
-    this.initTraits();
     this.initComponents();
+    this.initTraits();
     this.initToolbar();
     this.initScriptProps();
     this.listenTo(this, 'change:script', this.scriptUpdated);
@@ -300,6 +328,18 @@ export default class Component extends StyleableModel<ComponentProperties> {
     }
   }
 
+  __onStyleChange(newStyles: StyleProps) {
+    const { em } = this;
+    if (!em) return;
+
+    const event = 'component:styleUpdate';
+    const styleKeys = keys(newStyles);
+    const pros = { style: newStyles };
+
+    em.trigger(event, this, pros);
+    styleKeys.forEach(key => em.trigger(`${event}:${key}`, this, pros));
+  }
+
   __changesUp(opts: any) {
     const { em, frame } = this;
     [frame, em].forEach(md => md && md.changesUp(opts));
@@ -351,11 +391,19 @@ export default class Component extends StyleableModel<ComponentProperties> {
   /**
    * Change the drag mode of the component.
    * To get more about this feature read: https://github.com/GrapesJS/grapesjs/issues/1936
-   * @param {String} value Drag mode, options: 'absolute' | 'translate'
+   * @param {String} value Drag mode, options: `'absolute'` | `'translate'` | `''`
    * @returns {this}
    */
   setDragMode(value?: DragMode) {
     return this.set('dmode', value);
+  }
+
+  /**
+   * Get the drag mode of the component.
+   * @returns {String} Drag mode value, options: `'absolute'` | `'translate'` | `''`
+   */
+  getDragMode(): DragMode {
+    return this.get('dmode') || '';
   }
 
   /**
@@ -465,16 +513,18 @@ export default class Component extends StyleableModel<ComponentProperties> {
   /**
    * Replace a component with another one
    * @param {String|Component} el Component or HTML string
-   * @return {Component|Array<Component>} New added component/s
+   * @param {Object} [opts={}] Options for the append action
+   * @returns {Array<Component>} New replaced components
    * @example
-   * component.replaceWith('<div>Some new content</div>');
-   * // -> Component
+   * const result = component.replaceWith('<div>Some new content</div>');
+   * // result -> [Component]
    */
-  replaceWith(el: Component) {
+  replaceWith<C extends Component = Component>(el: ComponentAdd, opts: AddOptions = {}): C[] {
     const coll = this.collection;
     const at = coll.indexOf(this);
     coll.remove(this);
-    return coll.add(el, { at });
+    const result = coll.add(el, { ...opts, at });
+    return isArray(result) ? result : [result];
   }
 
   /**
@@ -538,7 +588,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * component.removeAttributes('some-attr');
    * component.removeAttributes(['some-attr1', 'some-attr2']);
    */
-  removeAttributes(attrs: string[] = [], opts: SetOptions = {}) {
+  removeAttributes(attrs: string | string[] = [], opts: SetOptions = {}) {
     const attrArr = Array.isArray(attrs) ? attrs : [attrs];
     const compAttr = this.getAttributes();
     attrArr.map(i => delete compAttr[i]);
@@ -550,11 +600,11 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * @return {Object}
    */
   getStyle(options: any = {}, optsAdd: any = {}) {
-    const em = this.em;
+    const { em } = this;
     const prop = isString(options) ? options : '';
     const opts = prop ? optsAdd : options;
 
-    if (em && em.getConfig().avoidInlineStyle && !opts.inline) {
+    if (avoidInline(em) && !opts.inline) {
       const state = em.get('state');
       const cc = em.Css;
       const rule = cc.getIdRule(this.getId(), { state, ...opts });
@@ -575,23 +625,26 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * @example
    * component.setStyle({ color: 'red' });
    */
-  setStyle(prop: ObjectStrings = {}, opts: any = {}) {
+  setStyle(prop: StyleProps = {}, opts: any = {}) {
     const { opt, em } = this;
 
-    if (em && em.getConfig().avoidInlineStyle && !opt.temporary && !opts.inline) {
+    if (avoidInline(em) && !opt.temporary && !opts.inline) {
       const style = this.get('style') || {};
       prop = isString(prop) ? this.parseStyle(prop) : prop;
       prop = { ...prop, ...style };
       const state = em.get('state');
       const cc = em.Css;
       const propOrig = this.getStyle(opts);
-      this.rule = cc.setIdRule(this.getId(), prop, { ...opts, state });
+      this.rule = cc.setIdRule(this.getId(), prop, { state, ...opts });
       const diff = shallowDiff(propOrig, prop);
       this.set('style', '', { silent: true });
       keys(diff).forEach(pr => this.trigger(`change:style:${pr}`));
     } else {
-      // @ts-ignore
-      prop = super.setStyle.apply(this, arguments);
+      prop = super.setStyle.apply(this, arguments as any);
+    }
+
+    if (!opt.temporary) {
+      this.__onStyleChange(opts.addStyle || prop);
     }
 
     return prop;
@@ -612,7 +665,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
     if (opts.noClass) {
       delete attributes.class;
     } else {
-      this.classes.forEach(cls => classes.push(isString(cls) ? cls : cls.get('name')));
+      this.classes.forEach(cls => classes.push(isString(cls) ? cls : cls.getName()));
       classes.length && (attributes.class = classes.join(' '));
     }
 
@@ -626,19 +679,23 @@ export default class Component extends StyleableModel<ComponentProperties> {
 
     // Check if we need an ID on the component
     if (!has(attributes, 'id')) {
-      let addId;
+      let addId = false;
 
       // If we don't rely on inline styling we have to check
       // for the ID selector
-      if (avoidInline(em)) {
-        addId = sm && sm.get(id, sm.Selector.TYPE_ID);
-      } else if (!isEmpty(this.getStyle())) {
-        addId = 1;
+      if (avoidInline(em) || !isEmpty(this.getStyle())) {
+        addId = !!sm?.get(id, sm.Selector.TYPE_ID);
       }
 
-      // Symbols should always have an id
-      if (this.__getSymbol() || this.__getSymbols()) {
-        addId = 1;
+      if (
+        // Symbols should always have an id
+        this.__getSymbol() ||
+        this.__getSymbols() ||
+        // Components with script should always have an id
+        this.get('script-export') ||
+        this.get('script')
+      ) {
+        addId = true;
       }
 
       if (addId) {
@@ -966,9 +1023,9 @@ export default class Component extends StyleableModel<ComponentProperties> {
 
   initClasses(m?: any, c?: any, opts: any = {}) {
     const event = 'change:classes';
-    const attrCls = this.get('attributes')!.class || [];
+    const { class: attrCls, ...restAttr } = this.get('attributes') || {};
     const toListen = [this, event, this.initClasses];
-    const cls = this.get('classes') || attrCls;
+    const cls = this.get('classes') || attrCls || [];
     const clsArr = isString(cls) ? cls.split(' ') : cls;
     this.stopListening(...toListen);
     const classes = this.normalizeClasses(clsArr);
@@ -976,6 +1033,8 @@ export default class Component extends StyleableModel<ComponentProperties> {
     this.set('classes', selectors, opts);
     selectors.add(classes);
     selectors.on('add remove reset', this.__upSymbCls);
+    // Clear attributes from classes
+    attrCls && classes.length && this.set('attributes', restAttr);
     // @ts-ignore
     this.listenTo(...toListen);
     return this;
@@ -1007,8 +1066,8 @@ export default class Component extends StyleableModel<ComponentProperties> {
     const attrs = { ...this.get('attributes') };
     const traits = this.traits;
     traits.each(trait => {
-      if (!trait.get('changeProp')) {
-        const name = trait.get('name');
+      if (!trait.changeProp) {
+        const name = trait.getName();
         const value = trait.getInitValue();
         if (name && value) attrs[name] = value;
       }
@@ -1531,7 +1590,8 @@ export default class Component extends StyleableModel<ComponentProperties> {
       forEach(props, (value, key) => {
         const skipProps = ['classes', 'attributes', 'components'];
         if (key[0] !== '_' && skipProps.indexOf(key) < 0) {
-          attributes[`data-gjs-${key}`] = isArray(value) || isObject(value) ? JSON.stringify(value) : value;
+          attributes[`data-gjs-${key}`] =
+            isArray(value) || isObject(value) ? JSON.stringify(value) : isBoolean(value) ? `${value}` : value;
         }
       });
     }
@@ -1575,7 +1635,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
 
   __innerHTML(opts: ToHTMLOptions = {}) {
     const cmps = this.components();
-    return !cmps.length ? this.get('content') : cmps.map(c => c.toHTML(opts)).join('');
+    return !cmps.length ? this.content : cmps.map(c => c.toHTML(opts)).join('');
   }
 
   /**
@@ -1584,9 +1644,13 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * @private
    */
   getAttrToHTML() {
-    var attr = this.getAttributes();
-    delete attr.style;
-    return attr;
+    const attrs = this.getAttributes();
+
+    if (avoidInline(this.em)) {
+      delete attrs.style;
+    }
+
+    return attrs;
   }
 
   /**
@@ -1604,6 +1668,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
     delete obj.status;
     delete obj.open; // used in Layers
     delete obj._undoexc;
+    delete obj.delegate;
 
     if (!opts.fromUndo) {
       const symbol = obj[keySymbol];
@@ -1682,7 +1747,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * @param {Frame} frame Specific frame from which taking the element
    * @return {HTMLElement}
    */
-  getEl(frame = undefined) {
+  getEl(frame?: Frame) {
     const view = this.getView(frame);
     return view && view.el;
   }
@@ -1694,17 +1759,19 @@ export default class Component extends StyleableModel<ComponentProperties> {
    * @return {ComponentView}
    */
   getView(frame?: Frame) {
-    let { view, views } = this;
+    let { view, views, em } = this;
+    const frm = frame || em?.getCurrentFrameModel();
 
-    if (frame) {
-      view = views.filter(view => view._getFrame() === frame.view)[0];
+    if (frm) {
+      view = views.filter(view => view.frameView === frm.view)[0];
     }
 
     return view;
   }
 
   getCurrentView() {
-    const frame = (this.em.get('currentFrame') || {}).model;
+    const frameView = this.em.getCurrentFrame();
+    const frame = frameView?.model;
     return this.getView(frame);
   }
 
@@ -1736,16 +1803,16 @@ export default class Component extends StyleableModel<ComponentProperties> {
     } else {
       // Deprecated
       // Need to convert script functions to strings
-      if (typeof scr == 'function') {
-        var scrStr = scr.toString().trim();
-        scrStr = scrStr.replace(/^function[\s\w]*\(\)\s?\{/, '').replace(/\}$/, '');
+      if (isFunction(scr)) {
+        let scrStr = scr.toString().trim();
+        scrStr = scrStr.slice(scrStr.indexOf('{') + 1, scrStr.lastIndexOf('}'));
         scr = scrStr.trim();
       }
 
-      var config = this.em.getConfig();
-      var tagVarStart = escapeRegExp(config.tagVarStart || '{[ ');
-      var tagVarEnd = escapeRegExp(config.tagVarEnd || ' ]}');
-      var reg = new RegExp(`${tagVarStart}([\\w\\d-]*)${tagVarEnd}`, 'g');
+      const config = this.em.getConfig();
+      const tagVarStart = escapeRegExp(config.tagVarStart || '{[ ');
+      const tagVarEnd = escapeRegExp(config.tagVarEnd || ' ]}');
+      const reg = new RegExp(`${tagVarStart}([\\w\\d-]*)${tagVarEnd}`, 'g');
       scr = scr.replace(reg, (match, v) => {
         // If at least one match is found I have to track this change for a
         // better optimization inside JS generator
@@ -1788,6 +1855,23 @@ export default class Component extends StyleableModel<ComponentProperties> {
       this.components().forEach(model => model.onAll(clb));
     }
     return this;
+  }
+
+  /**
+   * Execute a callback function on all inner child components.
+   * @param  {Function} clb Callback function, the child component is passed as an argument
+   * @example
+   * component.forEachChild(child => {
+   *  console.log(child)
+   * })
+   */
+  forEachChild(clb: (child: Component) => void) {
+    if (isFunction(clb)) {
+      this.components().forEach(child => {
+        clb(child);
+        child.forEachChild(clb);
+      });
+    }
   }
 
   /**
@@ -2032,10 +2116,10 @@ export default class Component extends StyleableModel<ComponentProperties> {
     components: ComponentDefinitionDefined | ComponentDefinitionDefined[],
     styles: CssRuleJSON[] = [],
     list: ObjectAny = {},
-    opts: { keepIds?: string[] } = {}
+    opts: { keepIds?: string[]; idMap?: PrevToNewIdMap } = {}
   ) {
     const comps = isArray(components) ? components : [components];
-    const { keepIds = [] } = opts;
+    const { keepIds = [], idMap = {} } = opts;
     comps.forEach(comp => {
       comp.attributes;
       const { attributes = {}, components } = comp;
@@ -2044,6 +2128,7 @@ export default class Component extends StyleableModel<ComponentProperties> {
       // Check if we have collisions with current components
       if (id && list[id] && keepIds.indexOf(id) < 0) {
         const newId = Component.getIncrementId(id, list);
+        idMap[id] = newId;
         attributes.id = newId;
         // Update passed styles
         isArray(styles) &&

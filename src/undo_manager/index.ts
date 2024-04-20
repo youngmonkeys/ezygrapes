@@ -133,7 +133,6 @@ export default class UndoManagerModule extends Module<UndoManagerConfig & { name
     });
 
     this.um.on('undo redo', () => {
-      em.trigger('change:canvasOffset');
       em.getSelectedAll().map(c => c.trigger('rerender:layer'));
     });
     ['undo', 'redo'].forEach(ev => this.um.on(ev, () => em.trigger(ev)));
@@ -323,9 +322,11 @@ export default class UndoManagerModule extends Module<UndoManagerConfig & { name
   }
 
   skip(clb: Function) {
-    this.stop();
+    const isTracking = !!this.um.isTracking();
+
+    isTracking && this.stop();
     clb();
-    this.start();
+    isTracking && this.start();
   }
 
   getGroupedStack(): UndoGroup[] {

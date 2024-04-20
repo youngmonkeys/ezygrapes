@@ -2,13 +2,13 @@ import { isUndefined, isArray, contains, toArray, keys, bindAll } from 'undersco
 import Backbone from 'backbone';
 import $ from '../../utils/cash-dom';
 import Extender from '../../utils/extender';
-import { getModel, hasWin, isEmptyObj } from '../../utils/mixins';
-import { Model } from '../../common';
+import { hasWin, isEmptyObj, wait } from '../../utils/mixins';
+import { AddOptions, Model, ObjectAny } from '../../common';
 import Selected from './Selected';
 import FrameView from '../../canvas/view/FrameView';
 import Editor from '..';
 import EditorView from '../view/EditorView';
-import Module from '../../abstract/Module';
+import { ILoadableModule, IModule, IStorableModule } from '../../abstract/Module';
 import CanvasModule from '../../canvas';
 import ComponentManager from '../../dom_components';
 import CssComposer from '../../css_composer';
@@ -37,13 +37,15 @@ import CssRule from '../../css_composer/model/CssRule';
 import { HTMLGeneratorBuildOptions } from '../../code_manager/model/HtmlGenerator';
 import { CssGeneratorBuildOptions } from '../../code_manager/model/CssGenerator';
 import ComponentView from '../../dom_components/view/ComponentView';
-import { ProjectData } from '../../storage_manager/model/IStorage';
+import { ProjectData, StorageOptions } from '../../storage_manager/model/IStorage';
 import CssRules from '../../css_composer/model/CssRules';
-import Frame from '../../canvas/model/Frame';
+import { ComponentAdd, DragMode } from '../../dom_components/model/types';
+import ComponentWrapper from '../../dom_components/model/ComponentWrapper';
+import { CanvasSpotBuiltInTypes } from '../../canvas/model/CanvasSpot';
 
 Backbone.$ = $;
 
-const deps: (new (em: EditorModel) => Module)[] = [
+const deps: (new (em: EditorModel) => IModule)[] = [
   UtilsModule,
   I18nModule,
   KeymapsModule,
@@ -57,15 +59,17 @@ const deps: (new (em: EditorModel) => Module)[] = [
   CodeManagerModule,
   PanelManager,
   RichTextEditorModule,
-  AssetManager,
-  CssComposer,
-  PageManager,
   TraitManager,
-  ComponentManager,
   LayerManager,
   CanvasModule,
   CommandsModule,
   BlockManager,
+];
+const storableDeps: (new (em: EditorModel) => IModule & IStorableModule)[] = [
+  AssetManager,
+  CssComposer,
+  PageManager,
+  ComponentManager,
 ];
 
 Extender({ $ });
@@ -76,6 +80,11 @@ const logs = {
   warning: console.warn,
   error: console.error,
 };
+
+export interface EditorLoadOptions {
+  /** Clear the editor state (eg. dirty counter, undo manager, etc.). */
+  clear?: boolean;
+}
 
 export default class EditorModel extends Model {
   defaults() {
@@ -99,21 +108,21 @@ export default class EditorModel extends Model {
   defaultRunning = false;
   destroyed = false;
   _config: EditorConfig;
-  _storageTimeout?: NodeJS.Timeout;
+  _storageTimeout?: ReturnType<typeof setTimeout>;
   attrsOrig: any;
-  timedInterval?: number;
-  updateItr?: number;
+  timedInterval?: ReturnType<typeof setTimeout>;
+  updateItr?: ReturnType<typeof setTimeout>;
   view?: EditorView;
 
-  get storables(): any[] {
+  get storables(): IStorableModule[] {
     return this.get('storables');
   }
 
-  get modules(): Module[] {
+  get modules(): IModule[] {
     return this.get('modules');
   }
 
-  get toLoad(): any[] {
+  get toLoad(): ILoadableModule[] {
     return this.get('toLoad');
   }
 
@@ -248,7 +257,8 @@ export default class EditorModel extends Model {
     }
 
     // Load modules
-    deps.forEach(name => this.loadModule(name));
+    deps.forEach(constr => this.loadModule(constr));
+    storableDeps.forEach(constr => this.loadStorableModule(constr));
     this.on('change:componentHovered', this.componentHovered, this);
     this.on('change:changesCount', this.updateChanges, this);
     this.on('change:readyLoad change:readyCanvas', this._checkReady, this);
@@ -305,10 +315,10 @@ export default class EditorModel extends Model {
    */
   loadOnStart() {
     const { projectData, headless } = this.config;
-    const sm = this.get('StorageManager');
+    const sm = this.Storage;
 
     // In `onLoad`, the module will try to load the data from its configurations.
-    this.toLoad.forEach(mdl => mdl.onLoad());
+    this.toLoad.reverse().forEach(mdl => mdl.onLoad());
 
     // Stuff to do post load
     const postLoad = () => {
@@ -343,7 +353,8 @@ export default class EditorModel extends Model {
       undoManager: false,
     });
     // We only need to load a few modules
-    ['PageManager', 'Canvas'].forEach(key => shallow.get(key).onLoad());
+    shallow.Pages.onLoad();
+    shallow.Canvas.postLoad();
     this.set('shallow', shallow);
   }
 
@@ -352,12 +363,14 @@ export default class EditorModel extends Model {
    * and there are unsaved changes
    * @private
    */
-  updateChanges() {
-    const stm = this.get('StorageManager');
+  updateChanges(m: any, v: any, opts: ObjectAny) {
+    const stm = this.Storage;
     const changes = this.getDirtyCount();
-    this.updateItr && clearTimeout(this.updateItr);
-    //@ts-ignore
-    this.updateItr = setTimeout(() => this.trigger('update'));
+
+    if (!opts.isClear) {
+      this.updateItr && clearTimeout(this.updateItr);
+      this.updateItr = setTimeout(() => this.trigger('update'));
+    }
 
     if (this.config.noticeOnUnload) {
       window.onbeforeunload = changes ? () => true : null;
@@ -370,34 +383,19 @@ export default class EditorModel extends Model {
 
   /**
    * Load generic module
-   * @param {String} moduleName Module name
-   * @return {this}
-   * @private
    */
-  loadModule(Module: any) {
-    const { config } = this;
-    const Mod = new Module(this);
-    const name = (Mod.name.charAt(0).toLowerCase() + Mod.name.slice(1)) as EditorConfigKeys;
-    const cfgParent = !isUndefined(config[name]) ? config[name] : config[Mod.name as EditorConfigKeys];
-    const cfg = (cfgParent === true ? {} : cfgParent || {}) as Record<string, any>;
-    cfg.pStylePrefix = config.pStylePrefix || '';
-
-    if (!isUndefined(cfgParent) && !cfgParent) {
-      cfg._disable = 1;
-    }
-
-    if (Mod.storageKey && Mod.store && Mod.load) {
-      this.storables.push(Mod);
-    }
-
-    cfg.em = this;
-    Mod.init({ ...cfg });
-
-    // Bind the module to the editor model if public
-    !Mod.private && this.set(Mod.name, Mod);
-    Mod.onLoad && this.toLoad.push(Mod);
+  private loadModule(InitModule: new (em: EditorModel) => IModule) {
+    const Mod = new InitModule(this);
+    this.set(Mod.name, Mod);
+    Mod.onLoad && this.toLoad.push(Mod as ILoadableModule);
     this.modules.push(Mod);
-    return this;
+    return Mod;
+  }
+
+  private loadStorableModule(InitModule: new (em: EditorModel) => IModule & IStorableModule) {
+    const Mod = this.loadModule(InitModule) as IModule & IStorableModule;
+    this.storables.push(Mod);
+    return Mod;
   }
 
   /**
@@ -433,7 +431,6 @@ export default class EditorModel extends Model {
     }
 
     this.timedInterval && clearTimeout(this.timedInterval);
-    //@ts-ignore
     this.timedInterval = setTimeout(() => {
       const curr = this.getDirtyCount() || 0;
       const { unset, ...opts } = opt;
@@ -478,7 +475,7 @@ export default class EditorModel extends Model {
 
   /**
    * Select a component
-   * @param  {Component|HTMLElement} el Component to select
+   * @param  {Component} el Component to select
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
@@ -486,19 +483,18 @@ export default class EditorModel extends Model {
     const { event } = opts;
     const ctrlKey = event && (event.ctrlKey || event.metaKey);
     const { shiftKey } = event || {};
-    const els = (isArray(el) ? el : [el]).map(el => getModel(el, $));
+    const models = (isArray(el) ? el : [el])
+      .map(cmp => cmp?.delegate?.select?.(cmp) || cmp)
+      .filter(Boolean) as Component[];
     const selected = this.getSelectedAll();
     const mltSel = this.getConfig().multipleSelection;
-    let added;
-
-    // If an array is passed remove all selected
-    // expect those yet to be selected
     const multiple = isArray(el);
-    multiple && this.removeSelected(selected.filter(s => !contains(els, s)));
 
-    els.forEach(el => {
-      let model = getModel(el, undefined);
+    if (multiple || !el) {
+      this.removeSelected(selected.filter(s => !contains(models, s)));
+    }
 
+    models.forEach(model => {
       if (model) {
         this.trigger('component:select:before', model, opts);
 
@@ -507,7 +503,7 @@ export default class EditorModel extends Model {
           if (opts.useValid) {
             let parent = model.parent();
             while (parent && !parent.get('selectable')) parent = parent.parent();
-            model = parent;
+            model = parent!;
           } else {
             return;
           }
@@ -518,7 +514,7 @@ export default class EditorModel extends Model {
       if (ctrlKey && mltSel) {
         return this.toggleSelected(model);
       } else if (shiftKey && mltSel) {
-        this.clearSelection(this.get('Canvas').getWindow());
+        this.clearSelection(this.Canvas.getWindow());
         const coll = model.collection;
         const index = model.index();
         let min: number | undefined, max: number | undefined;
@@ -557,19 +553,17 @@ export default class EditorModel extends Model {
 
       !multiple && this.removeSelected(selected.filter(s => s !== model));
       this.addSelected(model, opts);
-      added = model;
     });
   }
 
   /**
    * Add component to selection
-   * @param  {Component|HTMLElement} el Component to select
+   * @param  {Component|Array<Component>} component Component to select
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
-  addSelected(el: Component | Component[], opts: any = {}) {
-    const model = getModel(el, $);
-    const models = isArray(model) ? model : [model];
+  addSelected(component: Component | Component[], opts: any = {}) {
+    const models: Component[] = isArray(component) ? component : [component];
 
     models.forEach(model => {
       const { selected } = this;
@@ -587,29 +581,39 @@ export default class EditorModel extends Model {
       toDeselect.forEach(cmp => this.removeSelected(cmp, opts));
 
       selected.addComponent(model, opts);
-      model && this.trigger('component:select', model, opts);
+      this.trigger('component:select', model, opts);
+      this.Canvas.addSpot({
+        type: CanvasSpotBuiltInTypes.Select,
+        component: model,
+      });
     });
   }
 
   /**
    * Remove component from selection
-   * @param  {Component|HTMLElement} el Component to select
+   * @param  {Component|Array<Component>} component Component to select
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
-  removeSelected(el: Component | Component[], opts = {}) {
-    this.selected.removeComponent(getModel(el, $), opts);
+  removeSelected(component: Component | Component[], opts = {}) {
+    this.selected.removeComponent(component, opts);
+    const cmps: Component[] = isArray(component) ? component : [component];
+    cmps.forEach(component =>
+      this.Canvas.removeSpots({
+        type: CanvasSpotBuiltInTypes.Select,
+        component,
+      })
+    );
   }
 
   /**
    * Toggle component selection
-   * @param  {Component|HTMLElement} el Component to select
+   * @param  {Component|Array<Component>} component Component to select
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
-  toggleSelected(el: Component | Component[], opts: any = {}) {
-    const model = getModel(el, $);
-    const models = isArray(model) ? model : [model];
+  toggleSelected(component: Component | Component[], opts: any = {}) {
+    const models = isArray(component) ? component : [component];
 
     models.forEach(model => {
       if (this.selected.hasComponent(model)) {
@@ -622,40 +626,59 @@ export default class EditorModel extends Model {
 
   /**
    * Hover a component
-   * @param  {Component|HTMLElement} el Component to select
+   * @param  {Component|Array<Component>} cmp Component to select
    * @param  {Object} [opts={}] Options, optional
    * @private
    */
-  setHovered(el: any, opts: any = {}) {
-    if (!el) return this.set('componentHovered', '');
+  setHovered(cmp?: Component | null, opts: any = {}) {
+    const upHovered = (cmp?: Component, opts?: any) => {
+      const { config, Canvas } = this;
+      const current = this.getHovered();
+      const selectedAll = this.getSelectedAll();
+      const typeHover = CanvasSpotBuiltInTypes.Hover;
+      const typeSpacing = CanvasSpotBuiltInTypes.Spacing;
+      this.set('componentHovered', cmp || null, opts);
+
+      if (current) {
+        Canvas.removeSpots({ type: typeHover, component: current });
+        Canvas.removeSpots({ type: typeSpacing, component: current });
+      }
+
+      if (cmp) {
+        Canvas.addSpot({ type: typeHover, component: cmp });
+        if (!selectedAll.includes(cmp) || config.showOffsetsSelected) {
+          Canvas.addSpot({ type: typeSpacing, component: cmp });
+        }
+      }
+    };
+
+    if (!cmp) {
+      return upHovered();
+    }
 
     const ev = 'component:hover';
-    let model = getModel(el, undefined);
-
-    if (!model) return;
-
-    opts.forceChange && this.set('componentHovered', '');
-    this.trigger(`${ev}:before`, model, opts);
+    opts.forceChange && upHovered();
+    this.trigger(`${ev}:before`, cmp, opts);
 
     // Check for valid hoverable
-    if (!model.get('hoverable')) {
+    if (!cmp.get('hoverable')) {
       if (opts.useValid && !opts.abort) {
-        let parent = model && model.parent();
+        let parent = cmp.parent();
         while (parent && !parent.get('hoverable')) parent = parent.parent();
-        model = parent;
+        cmp = parent;
       } else {
         return;
       }
     }
 
     if (!opts.abort) {
-      this.set('componentHovered', model, opts);
-      this.trigger(ev, model, opts);
+      upHovered(cmp, opts);
+      this.trigger(ev, cmp, opts);
     }
   }
 
   getHovered() {
-    return this.get('componentHovered');
+    return this.get('componentHovered') as Component | undefined;
   }
 
   /**
@@ -665,8 +688,8 @@ export default class EditorModel extends Model {
    * @return {this}
    * @public
    */
-  setComponents(components: any, opt = {}) {
-    return this.get('DomComponents').setComponents(components, opt);
+  setComponents(components: ComponentAdd, opt: AddOptions = {}) {
+    return this.Components.setComponents(components, opt);
   }
 
   /**
@@ -675,12 +698,12 @@ export default class EditorModel extends Model {
    * @private
    */
   getComponents() {
-    var cmp = this.get('DomComponents');
-    var cm = this.get('CodeManager');
+    const cmp = this.Components;
+    const cm = this.CodeManager;
 
     if (!cmp || !cm) return;
 
-    var wrp = cmp.getComponents();
+    const wrp = cmp.getComponents();
     return cm.getCode(wrp, 'json');
   }
 
@@ -692,7 +715,7 @@ export default class EditorModel extends Model {
    * @public
    */
   setStyle(style: any, opt = {}) {
-    const cssc = this.get('CssComposer');
+    const cssc = this.Css;
     cssc.clear(opt);
     cssc.getAll().add(style, opt);
     return this;
@@ -746,9 +769,9 @@ export default class EditorModel extends Model {
     const { config } = this;
     const { optsHtml } = config;
     const js = config.jsInHtml ? this.getJs(opts) : '';
-    const cmp = opts.component || this.get('DomComponents').getComponent();
+    const cmp = opts.component || this.Components.getComponent();
     let html = cmp
-      ? this.get('CodeManager').getCode(cmp, 'html', {
+      ? this.CodeManager.getCode(cmp, 'html', {
           ...optsHtml,
           ...opts,
         })
@@ -768,7 +791,7 @@ export default class EditorModel extends Model {
     const { optsCss } = config;
     const avoidProt = opts.avoidProtected;
     const keepUnusedStyles = !isUndefined(opts.keepUnusedStyles) ? opts.keepUnusedStyles : config.keepUnusedStyles;
-    const cssc = this.get('CssComposer');
+    const cssc = this.Css;
     const wrp = opts.component || this.Components.getComponent();
     const protCss = !avoidProt ? config.protectedCss! : '';
     const css =
@@ -796,7 +819,7 @@ export default class EditorModel extends Model {
    * Store data to the current storage.
    * @public
    */
-  async store(options?: any) {
+  async store<T extends StorageOptions>(options?: T) {
     const data = this.storeData();
     await this.Storage.store(data, options);
     this.clearDirtyCount();
@@ -807,9 +830,17 @@ export default class EditorModel extends Model {
    * Load data from the current storage.
    * @public
    */
-  async load(options?: any) {
+  async load<T extends StorageOptions>(options?: T, loadOptions: EditorLoadOptions = {}) {
     const result = await this.Storage.load(options);
     this.loadData(result);
+    // Wait in order to properly update the dirty counter (#5385)
+    await wait();
+
+    if (loadOptions.clear) {
+      this.UndoManager.clear();
+      this.clearDirtyCount();
+    }
+
     return result;
   }
 
@@ -839,8 +870,8 @@ export default class EditorModel extends Model {
    * @private
    */
   getDeviceModel() {
-    var name = this.get('device');
-    return this.get('DeviceManager').get(name);
+    const name = this.get('device');
+    return this.Devices.get(name);
   }
 
   /**
@@ -849,7 +880,7 @@ export default class EditorModel extends Model {
    * @private
    */
   runDefault(opts = {}) {
-    var command = this.get('Commands').get(this.config.defaultCommand);
+    const command = this.get('Commands').get(this.config.defaultCommand);
     if (!command || this.defaultRunning) return;
     command.stop(this, this, opts);
     command.run(this, this, opts);
@@ -874,9 +905,7 @@ export default class EditorModel extends Model {
    * @public
    */
   refreshCanvas(opts: any = {}) {
-    this.set('canvasOffset', null);
-    this.set('canvasOffset', this.get('Canvas').getOffset());
-    opts.tools && this.trigger('canvas:updateTools');
+    this.Canvas.refresh({ spots: opts.tools });
   }
 
   /**
@@ -907,20 +936,20 @@ export default class EditorModel extends Model {
    * Return the component wrapper
    * @return {Component}
    */
-  getWrapper() {
-    return this.get('DomComponents').getWrapper();
+  getWrapper(): ComponentWrapper | undefined {
+    return this.Components.getWrapper();
   }
 
   setCurrentFrame(frameView?: FrameView) {
     return this.set('currentFrame', frameView);
   }
 
-  getCurrentFrame(): FrameView {
+  getCurrentFrame(): FrameView | undefined {
     return this.get('currentFrame');
   }
 
-  getCurrentFrameModel(): Frame {
-    return (this.getCurrentFrame() || {}).model;
+  getCurrentFrameModel() {
+    return (this.getCurrentFrame() || {})?.model;
   }
 
   getIcon(icon: string) {
@@ -938,19 +967,24 @@ export default class EditorModel extends Model {
   }
 
   clearDirtyCount() {
-    return this.set('changesCount', 0);
+    return this.set({ changesCount: 0 }, { isClear: true });
   }
 
   getZoomDecimal() {
-    return this.get('Canvas').getZoomDecimal();
+    return this.Canvas.getZoomDecimal();
   }
 
   getZoomMultiplier() {
-    return this.get('Canvas').getZoomMultiplier();
+    return this.Canvas.getZoomMultiplier();
   }
 
-  setDragMode(value: string) {
+  setDragMode(value: DragMode) {
     return this.set('dmode', value);
+  }
+
+  getDragMode(component?: Component): DragMode {
+    const mode = component?.getDragMode() || this.get('dmode');
+    return mode || '';
   }
 
   t(...args: any[]) {
@@ -962,8 +996,8 @@ export default class EditorModel extends Model {
    * Returns true if the editor is in absolute mode
    * @returns {Boolean}
    */
-  inAbsoluteMode() {
-    return this.get('dmode') === 'absolute';
+  inAbsoluteMode(component?: Component) {
+    return this.getDragMode(component) === 'absolute';
   }
 
   /**
@@ -975,7 +1009,7 @@ export default class EditorModel extends Model {
     // @ts-ignore
     const { editors = [] } = config.grapesjs || {};
     const shallow = this.get('shallow');
-    clearTimeout(this._storageTimeout);
+    this._storageTimeout && clearTimeout(this._storageTimeout);
     shallow?.destroyAll();
     this.stopListening();
     this.stopDefault();
@@ -1061,7 +1095,7 @@ export default class EditorModel extends Model {
    */
   skip(clb: Function) {
     this.__skip = true;
-    const um = this.get('UndoManager');
+    const um = this.UndoManager;
     um ? um.skip(clb) : clb();
     this.__skip = false;
   }

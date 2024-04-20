@@ -1,3 +1,5 @@
+import Component from '../model/Component';
+
 export interface DomComponentsConfig {
   stylePrefix?: string;
 
@@ -11,6 +13,19 @@ export interface DomComponentsConfig {
    * @default true
    */
   draggableComponents?: boolean;
+
+  /**
+   * Experimental: Disable text inner components.
+   * With this option, you're able to decide which inner component inside text should be
+   * disabled (eg. no select, no hover, no layer visibility) once edited.
+   * @default false
+   * @example
+   * // disable all inner childs
+   * disableTextInnerChilds: true,
+   * // disable all except link components
+   * disableTextInnerChilds: (child) => !child.is('link'),
+   */
+  disableTextInnerChilds?: boolean | ((cmp: Component) => boolean | void);
 
   /**
    * You can setup a custom component definition processor before adding it into the editor.
@@ -38,13 +53,22 @@ export interface DomComponentsConfig {
    * https://www.w3.org/TR/2011/WD-html-markup-20110113/syntax.html#void-elements
    */
   voidElements?: string[];
+
+  /**
+   * Experimental: Use the frame document for DOM element creation.
+   * This option might be useful when elements require the local document context to
+   * work properly (eg. Web Components).
+   */
+  useFrameDoc?: boolean;
 }
 
 export default {
   stylePrefix: 'comp-',
   components: [],
   draggableComponents: true,
+  disableTextInnerChilds: false,
   processor: undefined,
+  useFrameDoc: false,
   voidElements: [
     'area',
     'base',

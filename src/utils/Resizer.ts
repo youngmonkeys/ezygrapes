@@ -1,6 +1,8 @@
-import { bindAll, isFunction, each } from 'underscore';
+import { bindAll, each, isFunction } from 'underscore';
+import { ElementPosOpts } from '../canvas/view/CanvasView';
 import { Position } from '../common';
-import { on, off, normalizeFloat } from './mixins';
+import { off, on } from './dom';
+import { normalizeFloat } from './mixins';
 
 type RectDim = {
   t: number;
@@ -23,6 +25,19 @@ type CallbackOptions = {
   resizer: Resizer;
 };
 
+interface ResizerUpdateTargetOptions {
+  store: boolean;
+  selectedHandler?: string;
+  resizer: Resizer;
+  config: ResizerOptions;
+}
+
+interface ResizerOnUpdateContainerOptions {
+  el: HTMLElement;
+  resizer: Resizer;
+  opts: ResizerOptions;
+}
+
 export interface ResizerOptions {
   /**
    * Function which returns custom X and Y coordinates of the mouse.
@@ -32,12 +47,12 @@ export interface ResizerOptions {
   /**
    * Indicates custom target updating strategy.
    */
-  updateTarget?: (el: HTMLElement, rect: RectDim, opts: any) => void;
+  updateTarget?: (el: HTMLElement, rect: RectDim, opts: ResizerUpdateTargetOptions) => void;
 
   /**
    * Function which gets HTMLElement as an arg and returns it relative position
    */
-  posFetcher?: (el: HTMLElement, opts: any) => BoundingRect;
+  posFetcher?: (el: HTMLElement, opts: ElementPosOpts) => BoundingRect;
 
   /**
    * Indicate if the resizer should keep the default ratio.
@@ -63,7 +78,7 @@ export interface ResizerOptions {
   /**
    * On container update callback.
    */
-  onUpdateContainer?: (opts: any) => void;
+  onUpdateContainer?: (opts: ResizerOnUpdateContainerOptions) => void;
 
   /**
    * Resize unit step.
@@ -409,7 +424,7 @@ export default class Resizer {
    * @param  {Object} opts Custom options
    * @return {Object}
    */
-  getElementPos(el: HTMLElement, opts = {}) {
+  getElementPos(el: HTMLElement, opts: ElementPosOpts = {}) {
     const { posFetcher } = this;
     return posFetcher ? posFetcher(el, opts) : getBoundingRect(el);
   }
@@ -457,7 +472,7 @@ export default class Resizer {
     const config = this.opts || {};
     const mouseFetch = this.mousePosFetcher;
     const attrName = 'data-' + config.prefix + 'handler';
-    const rect = this.getElementPos(el!, { target: 'el' });
+    const rect = this.getElementPos(el!, { avoidFrameZoom: true, avoidFrameOffset: true });
     const parentRect = this.getElementPos(parentEl!);
     const target = e.target as HTMLElement;
     this.handlerAttr = target.getAttribute(attrName)!;
@@ -648,7 +663,7 @@ export default class Resizer {
    * All positioning logic
    * @return {Object}
    */
-  calc(data: Resizer) {
+  calc(data: Resizer): RectDim | undefined {
     let value;
     const opts = this.opts || {};
     const step = opts.step!;
@@ -663,9 +678,9 @@ export default class Resizer {
     const unitHeight = this.opts.unitHeight;
     const startW = unitWidth === '%' ? (startDim.w / 100) * parentW : startDim.w;
     const startH = unitHeight === '%' ? (startDim.h / 100) * parentH : startDim.h;
-    var box = {
-      t: 0,
-      l: 0,
+    const box: RectDim = {
+      t: startDim.t,
+      l: startDim.l,
       w: startW,
       h: startH,
     };
@@ -722,10 +737,15 @@ export default class Resizer {
     }
 
     if (~attr.indexOf('l')) {
-      box.l = startDim.w - box.w;
+      box.l += startDim.w - box.w;
     }
     if (~attr.indexOf('t')) {
-      box.t = startDim.h - box.h;
+      box.t += startDim.h - box.h;
+    }
+
+    for (const key in box) {
+      const i = key as keyof RectDim;
+      box[i] = parseInt(`${box[i]}`, 10);
     }
 
     return box;

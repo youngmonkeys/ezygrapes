@@ -2,18 +2,27 @@
 // and adapted to the GrapesJS's need
 
 import { isString } from 'underscore';
+import RichTextEditorModule from '..';
 import EditorModel from '../../editor/model/Editor';
-import { on, off, getPointerEvent, getModel } from '../../utils/mixins';
+import { getPointerEvent, off, on } from '../../utils/dom';
+import { getComponentModel } from '../../utils/mixins';
 
 export interface RichTextEditorAction {
   name: string;
-  icon: string;
+  icon: string | HTMLElement;
   event?: string;
   attributes?: Record<string, any>;
   result: (rte: RichTextEditor, action: RichTextEditorAction) => void;
   update?: (rte: RichTextEditor, action: RichTextEditorAction) => number;
   state?: (rte: RichTextEditor, doc: Document) => number;
   btn?: HTMLElement;
+  currentState?: RichTextEditorActionState;
+}
+
+export enum RichTextEditorActionState {
+  ACTIVE = 1,
+  INACTIVE = 0,
+  DISABLED = -1,
 }
 
 export interface RichTextEditorOptions {
@@ -22,6 +31,7 @@ export interface RichTextEditorOptions {
   actionbar?: HTMLElement;
   actionbarContainer?: HTMLElement;
   styleWithCSS?: boolean;
+  module?: RichTextEditorModule;
 }
 
 type EffectOptions = {
@@ -113,7 +123,7 @@ export default class RichTextEditor {
   em: EditorModel;
   settings: RichTextEditorOptions;
   classes!: Record<string, string>;
-  actionbar!: HTMLElement;
+  actionbar?: HTMLElement;
   actions!: RichTextEditorAction[];
   el!: HTMLElement;
   doc!: Document;
@@ -161,16 +171,23 @@ export default class RichTextEditor {
     this.actions = actions;
 
     if (!actionbar) {
-      const actionbarCont = settings.actionbarContainer;
-      actionbar = document.createElement('div');
-      actionbar.className = classes.actionbar;
-      actionbarCont?.appendChild(actionbar);
-      this.actionbar = actionbar;
+      if (!this.isCustom(settings.module)) {
+        const actionbarCont = settings.actionbarContainer;
+        actionbar = document.createElement('div');
+        actionbar.className = classes.actionbar;
+        actionbarCont?.appendChild(actionbar);
+        this.actionbar = actionbar;
+      }
       actions.forEach(action => this.addAction(action));
     }
 
     settings.styleWithCSS && this.exec('styleWithCSS');
     return this;
+  }
+
+  isCustom(module?: RichTextEditorModule) {
+    const rte = module || this.em.RichTextEditor;
+    return !!(rte?.config.custom || rte?.customRte);
   }
 
   destroy() {}
@@ -181,40 +198,51 @@ export default class RichTextEditor {
   }
 
   updateActiveActions() {
-    this.getActions().forEach(action => {
-      const { update } = action;
-      const btn = action.btn!;
+    const actions = this.getActions();
+    actions.forEach(action => {
+      const { update, btn } = action;
       const { active, inactive, disabled } = this.classes;
       const state = action.state;
       const name = action.name;
       const doc = this.doc;
-      btn.className = btn.className.replace(active, '').trim();
-      btn.className = btn.className.replace(inactive, '').trim();
-      btn.className = btn.className.replace(disabled, '').trim();
+      let currentState = RichTextEditorActionState.INACTIVE;
+
+      if (btn) {
+        btn.className = btn.className.replace(active, '').trim();
+        btn.className = btn.className.replace(inactive, '').trim();
+        btn.className = btn.className.replace(disabled, '').trim();
+      }
 
       // if there is a state function, which depicts the state,
       // i.e. `active`, `disabled`, then call it
       if (state) {
-        switch (state(this, doc)) {
-          case btnState.ACTIVE:
-            btn.className += ` ${active}`;
-            break;
-          case btnState.INACTIVE:
-            btn.className += ` ${inactive}`;
-            break;
-          case btnState.DISABLED:
-            btn.className += ` ${disabled}`;
-            break;
+        const newState = state(this, doc);
+        currentState = newState;
+        if (btn) {
+          switch (newState) {
+            case btnState.ACTIVE:
+              btn.className += ` ${active}`;
+              break;
+            case btnState.INACTIVE:
+              btn.className += ` ${inactive}`;
+              break;
+            case btnState.DISABLED:
+              btn.className += ` ${disabled}`;
+              break;
+          }
         }
       } else {
         // otherwise default to checking if the name command is supported & enabled
         if (doc.queryCommandSupported(name) && doc.queryCommandState(name)) {
-          btn.className += ` ${active}`;
+          btn && (btn.className += ` ${active}`);
+          currentState = RichTextEditorActionState.ACTIVE;
         }
       }
-
+      action.currentState = currentState;
       update?.(this, action);
     });
+
+    actions.length && this.em.RichTextEditor.__dbdTrgCustom();
   }
 
   enable(opts: EffectOptions) {
@@ -229,7 +257,8 @@ export default class RichTextEditor {
   __toggleEffects(enable = false, opts: EffectOptions = {}) {
     const method = enable ? on : off;
     const { el, doc } = this;
-    this.actionbarEl().style.display = enable ? '' : 'none';
+    const actionbar = this.actionbarEl();
+    actionbar && (actionbar.style.display = enable ? '' : 'none');
     el.contentEditable = `${!!enable}`;
     method(el, 'mouseup keyup', this.updateActiveActions);
     method(doc, 'keydown', this.__onKeydown);
@@ -244,10 +273,11 @@ export default class RichTextEditor {
       if (event) {
         let range = null;
 
+        // Still used as caretPositionFromPoint is not yet well adopted
         if (doc.caretRangeFromPoint) {
           const poiner = getPointerEvent(event);
           range = doc.caretRangeFromPoint(poiner.clientX, poiner.clientY);
-          // @ts-ignore
+          // @ts-ignore for Firefox
         } else if (event.rangeParent) {
           range = doc.createRange();
           // @ts-ignore
@@ -265,8 +295,14 @@ export default class RichTextEditor {
     return this;
   }
 
-  __onKeydown(event: Event) {
-    const ev = event as KeyboardEvent;
+  __onKeydown(ev: KeyboardEvent) {
+    const { em } = this;
+    const { onKeydown } = em.RichTextEditor.getConfig();
+
+    if (onKeydown) {
+      return onKeydown({ ev, rte: this, editor: em.getEditor() });
+    }
+
     const { doc } = this;
     const cmdList = ['insertOrderedList', 'insertUnorderedList'];
 
@@ -276,12 +312,19 @@ export default class RichTextEditor {
     }
   }
 
-  __onPaste(ev: Event) {
-    // @ts-ignore
-    const clipboardData = ev.clipboardData || window.clipboardData;
+  __onPaste(ev: ClipboardEvent) {
+    const { em } = this;
+    const { onPaste } = em.RichTextEditor.getConfig();
+
+    if (onPaste) {
+      return onPaste({ ev, rte: this, editor: em.getEditor() });
+    }
+
+    const clipboardData = ev.clipboardData!;
     const text = clipboardData.getData('text');
     const textHtml = clipboardData.getData('text/html');
-    // Replace \n with <br> in case of plain text
+
+    // Replace \n with <br> in case of a plain text
     if (text && !textHtml) {
       ev.preventDefault();
       const html = text.replace(/(?:\r\n|\r|\n)/g, '<br/>');
@@ -297,11 +340,13 @@ export default class RichTextEditor {
       if (this.actionbar) {
         if (!action.state || (action.state && action.state(this, this.doc) >= 0)) {
           const event = action.event || 'click';
-          // @ts-ignore
-          action.btn[`on${event}`] = () => {
-            action.result(this, action);
-            this.updateActiveActions();
-          };
+          const { btn } = action;
+          if (btn) {
+            (btn as any)[`on${event}`] = () => {
+              action.result(this, action);
+              this.updateActiveActions();
+            };
+          }
         }
       }
     });
@@ -314,23 +359,26 @@ export default class RichTextEditor {
    */
   addAction(action: RichTextEditorAction, opts: { sync?: boolean } = {}) {
     const { sync } = opts;
-    const btn = document.createElement('span');
-    const icon = action.icon;
-    const attr = action.attributes || {};
-    btn.className = this.classes.button;
-    action.btn = btn;
+    const actionbar = this.actionbarEl();
 
-    for (let key in attr) {
-      btn.setAttribute(key, attr[key]);
+    if (actionbar) {
+      const { icon, attributes: attr = {} } = action;
+      const btn = document.createElement('span');
+      btn.className = this.classes.button;
+      action.btn = btn;
+
+      for (let key in attr) {
+        btn.setAttribute(key, attr[key]);
+      }
+
+      if (typeof icon == 'string') {
+        btn.innerHTML = icon;
+      } else {
+        btn.appendChild(icon);
+      }
+
+      actionbar.appendChild(btn);
     }
-
-    if (typeof icon == 'string') {
-      btn.innerHTML = icon;
-    } else {
-      btn.appendChild(icon);
-    }
-
-    this.actionbarEl().appendChild(btn);
 
     if (sync) {
       this.actions.push(action);
@@ -355,7 +403,8 @@ export default class RichTextEditor {
   }
 
   /**
-   * Execute the command
+   * Wrapper around [execCommand](https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand) to allow
+   * you to perform operations like `insertText`
    * @param  {string} command Command name
    * @param  {any} [value=null Command's arguments
    */
@@ -381,7 +430,7 @@ export default class RichTextEditor {
     const sel = doc.getSelection();
 
     if (sel && sel.rangeCount) {
-      const model = getModel(el);
+      const model = getComponentModel(el) || em.getSelected();
       const node = doc.createElement('div');
       const range = sel.getRangeAt(0);
       range.deleteContents();

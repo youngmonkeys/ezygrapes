@@ -18,46 +18,33 @@
  * const canvas = editor.Canvas;
  * canvas.setCoords(...);
  * ```
- * ## Available Events
- * * `canvas:dragenter` - When something is dragged inside the canvas, `DataTransfer` instance passed as an argument
- * * `canvas:dragover` - When something is dragging on canvas, `DataTransfer` instance passed as an argument
- * * `canvas:drop` - Something is dropped in canvas, `DataTransfer` instance and the dropped model are passed as arguments
- * * `canvas:dragend` - When a drag operation is ended, `DataTransfer` instance passed as an argument
- * * `canvas:dragdata` - On any dataTransfer parse, `DataTransfer` instance and the `result` are passed as arguments.
- *  By changing `result.content` you're able to customize what is dropped
  *
- * ## Methods
- * * [getConfig](#getconfig)
- * * [getElement](#getelement)
- * * [getFrameEl](#getframeel)
- * * [getWindow](#getwindow)
- * * [getDocument](#getdocument)
- * * [getBody](#getbody)
- * * [setCustomBadgeLabel](#setcustombadgelabel)
- * * [hasFocus](#hasfocus)
- * * [scrollTo](#scrollto)
- * * [setZoom](#setzoom)
- * * [getZoom](#getzoom)
- * * [getCoords](#getcoords)
- * * [setCoords](#setcoords)
+ * {REPLACE_EVENTS}
  *
  * [Component]: component.html
  * [Frame]: frame.html
+ * [CanvasSpot]: canvas_spot.html
  *
  * @module Canvas
  */
 
-import { isUndefined } from 'underscore';
+import { isArray, isUndefined } from 'underscore';
 import { Module } from '../abstract';
+import { AddOptions, Coordinates } from '../common';
+import Component from '../dom_components/model/Component';
+import ComponentView from '../dom_components/view/ComponentView';
 import EditorModel from '../editor/model/Editor';
 import { getElement, getViewEl } from '../utils/mixins';
 import defaults, { CanvasConfig } from './config/config';
 import Canvas from './model/Canvas';
+import CanvasSpot, { CanvasSpotBuiltInTypes, CanvasSpotProps } from './model/CanvasSpot';
+import CanvasSpots from './model/CanvasSpots';
 import Frame from './model/Frame';
-import CanvasView from './view/CanvasView';
+import { CanvasEvents, CanvasRefreshOptions, ToWorldOption } from './types';
+import CanvasView, { FitViewportOptions } from './view/CanvasView';
 import FrameView from './view/FrameView';
 
-export type CanvasEvent = 'canvas:dragenter' | 'canvas:dragover' | 'canvas:drop' | 'canvas:dragend' | 'canvas:dragdata';
+export type CanvasEvent = `${CanvasEvents}`;
 
 export default class CanvasModule extends Module<CanvasConfig> {
   /**
@@ -75,9 +62,11 @@ export default class CanvasModule extends Module<CanvasConfig> {
     return this.canvasView as any;
   }
 
-  //name = 'Canvas';
   canvas: Canvas;
   model: Canvas;
+  spots: CanvasSpots;
+  events = CanvasEvents;
+  framesById: Record<string, Frame | undefined> = {};
   private canvasView?: CanvasView;
 
   /**
@@ -89,14 +78,14 @@ export default class CanvasModule extends Module<CanvasConfig> {
     super(em, 'Canvas', defaults);
 
     this.canvas = new Canvas(this);
+    this.spots = new CanvasSpots(this);
     this.model = this.canvas;
     this.startAutoscroll = this.startAutoscroll.bind(this);
     this.stopAutoscroll = this.stopAutoscroll.bind(this);
     return this;
   }
-  init() {}
 
-  onLoad() {
+  postLoad() {
     this.model.init();
   }
 
@@ -156,10 +145,10 @@ export default class CanvasModule extends Module<CanvasConfig> {
     return doc?.body as HTMLBodyElement;
   }
 
-  _getLocalEl(globalEl: any, compView: any, method: keyof FrameView) {
+  _getLocalEl(globalEl: any, compView: ComponentView, method: keyof FrameView) {
     let result = globalEl;
-    const frameView = compView?._getFrame();
-    result = frameView ? frameView[method]() : result;
+    const frameView = compView?.frameView;
+    result = frameView ? (frameView as any)[method]() : result;
 
     return result;
   }
@@ -252,6 +241,10 @@ export default class CanvasModule extends Module<CanvasConfig> {
    */
   getFixedOffsetViewerEl() {
     return this.getCanvasView().fixedOffsetEl;
+  }
+
+  getSpotsEl() {
+    return this.canvasView?.spotsEl;
   }
 
   render(): HTMLElement {
@@ -403,10 +396,6 @@ export default class CanvasModule extends Module<CanvasConfig> {
       const scroll = top ? scrollTop : scrollLeft;
       const offset = top ? offsetTop : offsetLeft;
 
-      // if (!top) {
-      //   console.log('LEFT', { posLeft: pos[side], scroll, offset }, el);
-      // }
-
       return pos[side] - (scroll - offset) * zoom;
     };
 
@@ -416,41 +405,53 @@ export default class CanvasModule extends Module<CanvasConfig> {
     };
   }
 
-  getTargetToElementFixed(el: any, elToMove: any, opts: any = {}) {
-    const pos = opts.pos || this.getElementPos(el);
-    const cvOff = opts.canvasOff || this.canvasRectOffset(el, pos);
-    const toolbarH = elToMove.offsetHeight || 0;
-    const toolbarW = elToMove.offsetWidth || 0;
-    const elRight = pos.left + pos.width;
-    const cv = this.getCanvasView();
-    const frCvOff = cv.getPosition();
-    const frameOffset = cv.getFrameOffset(el);
+  /**
+   *
+   * @param {HTMLElement} el The component element in the canvas
+   * @param {HTMLElement} targetEl The target element to position (eg. toolbar)
+   * @param {Object} opts
+   * @private
+   */
+  getTargetToElementFixed(el: HTMLElement, targetEl: HTMLElement, opts: any = {}) {
+    const elRect = opts.pos || this.getElementPos(el, { noScroll: true });
+    const canvasOffset = opts.canvasOff || this.canvasRectOffset(el, elRect);
+    const targetHeight = targetEl.offsetHeight || 0;
+    const targetWidth = targetEl.offsetWidth || 0;
+    const elRight = elRect.left + elRect.width;
+    const canvasView = this.getCanvasView();
+    const canvasRect = canvasView.getPosition();
+    const frameOffset = canvasView.getFrameOffset(el);
     const { event } = opts;
 
-    let top = -toolbarH;
-    let left = !isUndefined(opts.left) ? opts.left : pos.width - toolbarW;
-    left = pos.left < -left ? -pos.left : left;
-    const frCvWidth = frCvOff?.width ?? 0;
-    left = elRight > frCvWidth ? left - (elRight - frCvWidth) : left;
+    let top = -targetHeight;
+    let left = !isUndefined(opts.left) ? opts.left : elRect.width - targetWidth;
+    left = elRect.left < -left ? -elRect.left : left;
+    left = elRight > canvasRect.width ? left - (elRight - canvasRect.width) : left;
 
-    // Scroll with the window if the top edge is reached and the
-    // element is bigger than the canvas
-    const fullHeight = pos.height + toolbarH;
-    const elIsShort = fullHeight < frameOffset.height;
+    // Check when the target top edge reaches the top of the viewable canvas
+    if (canvasOffset.top < targetHeight) {
+      const fullHeight = elRect.height + targetHeight;
+      const elIsShort = fullHeight < frameOffset.height;
 
-    if (cvOff.top < toolbarH) {
+      // Scroll with the window if the top edge is reached and the
+      // element is bigger than the canvas
       if (elIsShort) {
         top = top + fullHeight;
       } else {
-        top = -cvOff.top < pos.height ? -cvOff.top : pos.height;
+        top = -canvasOffset.top < elRect.height ? -canvasOffset.top : elRect.height;
       }
     }
 
     const result = {
       top,
       left,
-      canvasOffsetTop: cvOff.top,
-      canvasOffsetLeft: cvOff.left,
+      canvasOffsetTop: canvasOffset.top,
+      canvasOffsetLeft: canvasOffset.left,
+      elRect,
+      canvasOffset,
+      canvasRect,
+      targetWidth,
+      targetHeight,
     };
 
     // In this way I can catch data and also change the position strategy
@@ -469,14 +470,15 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * @private
    */
   getMouseRelativePos(e: any, opts: any = {}) {
-    var addTop = 0;
-    var addLeft = 0;
-    var subWinOffset = opts.subWinOffset;
-    var doc = e.target.ownerDocument;
-    var win = doc.defaultView || doc.parentWindow;
-    var frame = win.frameElement;
-    var yOffset = subWinOffset ? win.pageYOffset : 0;
-    var xOffset = subWinOffset ? win.pageXOffset : 0;
+    const subWinOffset = opts.subWinOffset;
+    const doc = e.target.ownerDocument;
+    const win = doc.defaultView || doc.parentWindow;
+    const frame = win.frameElement;
+    const yOffset = subWinOffset ? win.pageYOffset : 0;
+    const xOffset = subWinOffset ? win.pageXOffset : 0;
+    const zoomMlt = this.getZoomMultiplier();
+    let addTop = 0;
+    let addLeft = 0;
 
     if (frame) {
       var frameRect = frame.getBoundingClientRect();
@@ -485,8 +487,8 @@ export default class CanvasModule extends Module<CanvasConfig> {
     }
 
     return {
-      y: e.clientY + addTop - yOffset,
-      x: e.clientX + addLeft - xOffset,
+      y: (e.clientY + addTop - yOffset) * zoomMlt,
+      x: (e.clientX + addLeft - xOffset) * zoomMlt,
     };
   }
 
@@ -554,7 +556,7 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * Start autoscroll
    * @private
    */
-  startAutoscroll(frame: Frame) {
+  startAutoscroll(frame?: Frame) {
     const fr = (frame && frame.view) || this.em.getCurrentFrame();
     fr && fr.startAutoscroll();
   }
@@ -563,7 +565,7 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * Stop autoscroll
    * @private
    */
-  stopAutoscroll(frame: Frame) {
+  stopAutoscroll(frame?: Frame) {
     const fr = (frame && frame.view) || this.em.getCurrentFrame();
     fr && fr.stopAutoscroll();
   }
@@ -575,8 +577,8 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * @example
    * canvas.setZoom(50); // set zoom to 50%
    */
-  setZoom(value: string) {
-    this.canvas.set('zoom', parseFloat(value));
+  setZoom(value: number | string) {
+    this.canvas.set('zoom', typeof value === 'string' ? parseFloat(value) : value);
     return this;
   }
 
@@ -599,8 +601,27 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * @example
    * canvas.setCoords(100, 100);
    */
-  setCoords(x: string, y: string) {
-    this.canvas.set({ x: parseFloat(x), y: parseFloat(y) });
+  setCoords(x?: string | number, y?: string | number, opts: ToWorldOption = {}) {
+    const hasX = x || x === 0;
+    const hasY = y || y === 0;
+    const coords = {
+      x: this.canvas.get('x'),
+      y: this.canvas.get('y'),
+    };
+
+    if (hasX) coords.x = parseFloat(`${x}`);
+    if (hasY) coords.y = parseFloat(`${y}`);
+
+    if (opts.toWorld) {
+      const delta = this.canvasView?.getViewportDelta();
+      if (delta) {
+        if (hasX) coords.x = coords.x - delta.x;
+        if (hasY) coords.y = coords.y - delta.y;
+      }
+    }
+
+    this.canvas.set(coords);
+
     return this;
   }
 
@@ -612,9 +633,22 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * const coords = canvas.getCoords();
    * // { x: 100, y: 100 }
    */
-  getCoords(): { x: number; y: number } {
+  getCoords(): Coordinates {
     const { x, y } = this.canvas.attributes;
     return { x, y };
+  }
+
+  /**
+   * Get canvas pointer position coordinates.
+   * @returns {Object} Object containing pointer coordinates
+   * @private
+   * @example
+   * const worldPointer = canvas.getPointer();
+   * const screenPointer = canvas.getPointer(true);
+   */
+  getPointer(screen?: boolean): Coordinates {
+    const { pointer, pointerScreen } = this.canvas.attributes;
+    return screen ? pointerScreen : pointer;
   }
 
   getZoomDecimal() {
@@ -624,6 +658,10 @@ export default class CanvasModule extends Module<CanvasConfig> {
   getZoomMultiplier() {
     const zoom = this.getZoomDecimal();
     return zoom ? 1 / zoom : 1;
+  }
+
+  fitViewport(opts?: FitViewportOptions) {
+    this.canvasView?.fitViewport(opts);
   }
 
   toggleFramesEvents(on: boolean) {
@@ -639,6 +677,7 @@ export default class CanvasModule extends Module<CanvasConfig> {
    * Add new frame to the canvas
    * @param {Object} props Frame properties
    * @returns {[Frame]}
+   * @private
    * @example
    * canvas.addFrame({
    *   name: 'Mobile home page',
@@ -659,6 +698,162 @@ export default class CanvasModule extends Module<CanvasConfig> {
    */
   addFrame(props = {}, opts = {}) {
     return this.canvas.frames.add(new Frame(this, { ...props }), opts);
+  }
+
+  /**
+   * Get the last created Component from a drag & drop to the canvas.
+   * @returns {[Component]|undefined}
+   */
+  getLastDragResult(): Component | undefined {
+    return this.em.get('dragResult');
+  }
+
+  /**
+   * Add or update canvas spot.
+   * @param {Object} props Canvas spot properties.
+   * @param opts
+   * @returns {[CanvasSpot]}
+   * @example
+   * // Add new canvas spot
+   * const spot = canvas.addSpot({
+   *  type: 'select', // 'select' is one of the built-in spots
+   *  component: editor.getSelected(),
+   * });
+   *
+   * // Add custom canvas spot
+   * const spot = canvas.addSpot({
+   *  type: 'my-custom-spot',
+   *  component: editor.getSelected(),
+   * });
+   * // Update the same spot by reusing its ID
+   * canvas.addSpot({
+   *  id: spot.id,
+   *  component: anotherComponent,
+   * });
+   */
+  addSpot<T extends CanvasSpotProps>(props: Omit<T, 'id'> & { id?: string }, opts: AddOptions = {}) {
+    const spotProps = props as T;
+    const spots = this.getSpots<T>(spotProps);
+
+    if (spots.length) {
+      const spot = spots[0];
+      spot.set(spotProps);
+      return spot;
+    }
+
+    const cmpView = spotProps.componentView || spotProps.component?.view;
+    const spot = new CanvasSpot<T>(this, {
+      ...spotProps,
+      id: spotProps.id || `cs_${spotProps.type}_${cmpView?.cid}`,
+      type: spotProps.type || '',
+    } as T);
+
+    this.spots.add(spot, opts);
+
+    return spot;
+  }
+
+  /**
+   * Get canvas spots.
+   * @param {Object} [spotProps] Canvas spot properties for filtering the result. With no properties, all available spots will be returned.
+   * @returns {[CanvasSpot][]}
+   * @example
+   * canvas.addSpot({ type: 'select', component: cmp1 });
+   * canvas.addSpot({ type: 'select', component: cmp2 });
+   * canvas.addSpot({ type: 'target', component: cmp3 });
+   *
+   * // Get all spots
+   * const allSpots = canvas.getSpots();
+   * allSpots.length; // 3
+   *
+   * // Get all 'select' spots
+   * const allSelectSpots = canvas.getSpots({ type: 'select' });
+   * allSelectSpots.length; // 2
+   */
+  getSpots<T extends CanvasSpotProps>(spotProps: Partial<T> = {}) {
+    return this.spots.where(spotProps.id ? { id: spotProps.id } : spotProps) as CanvasSpot<T>[];
+  }
+
+  /**
+   * Remove canvas spots.
+   * @param {Object|[CanvasSpot][]} [spotProps] Canvas spot properties for filtering spots to remove or an array of spots to remove. With no properties, all available spots will be removed.
+   * @returns {[CanvasSpot][]}
+   * @example
+   * canvas.addSpot({ type: 'select', component: cmp1 });
+   * canvas.addSpot({ type: 'select', component: cmp2 });
+   * canvas.addSpot({ type: 'target', component: cmp3 });
+   *
+   * // Remove all 'select' spots
+   * canvas.removeSpots({ type: 'select' });
+   *
+   * // Remove spots by an array of canvas spots
+   * const filteredSpots = canvas.getSpots().filter(spot => myCustomCondition);
+   * canvas.removeSpots(filteredSpots);
+   *
+   * // Remove all spots
+   * canvas.removeSpots();
+   */
+  removeSpots<T extends CanvasSpotProps>(spotProps: Partial<T> | CanvasSpot[] = {}) {
+    const spots = isArray(spotProps) ? spotProps : this.getSpots(spotProps);
+    const removed = this.spots.remove(spots);
+    return removed as unknown as CanvasSpot<T>[];
+  }
+
+  /**
+   * Check if the built-in canvas spot has a declared custom rendering.
+   * @param {String} type Built-in canvas spot type
+   * @returns {Boolean}
+   * @example
+   * grapesjs.init({
+   *  // ...
+   *  canvas: {
+   *    // avoid rendering the built-in 'target' canvas spot
+   *    customSpots: { target: true }
+   *  }
+   * });
+   * // ...
+   * canvas.hasCustomSpot('select'); // false
+   * canvas.hasCustomSpot('target'); // true
+   */
+  hasCustomSpot(type?: CanvasSpotBuiltInTypes) {
+    const { customSpots } = this.config;
+
+    if (customSpots === true || (customSpots && type && customSpots[type])) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Transform a box rect from the world coordinate system to the screen one.
+   * @param {Object} boxRect
+   * @returns {Object}
+   */
+  getWorldRectToScreen(boxRect: Parameters<CanvasView['getRectToScreen']>[0]) {
+    return this.canvasView?.getRectToScreen(boxRect);
+  }
+
+  /**
+   * Update canvas for spots/tools positioning.
+   * @param {Object} [opts] Options.
+   * @param {Object} [opts.spots=false] Update the position of spots.
+   */
+  refresh(opts: CanvasRefreshOptions = {}) {
+    const { em, events, canvasView } = this;
+    canvasView?.clearOff();
+
+    if (opts.spots || opts.all) {
+      this.refreshSpots();
+      em.trigger('canvas:updateTools'); // this should be deprecated
+    }
+
+    em.set('canvasOffset', this.getOffset()); // this should be deprecated
+    em.trigger(events.refresh, opts);
+  }
+
+  refreshSpots() {
+    this.spots.refresh();
   }
 
   destroy() {

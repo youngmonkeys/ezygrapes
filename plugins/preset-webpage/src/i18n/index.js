@@ -57,7 +57,7 @@ const i18n = {
        '1_column': '1 cột',
        '2_columns': '2 cột',
        '3_columns': '3 cột',
-       '2_columns 3/7': '2 cột 3/7',
+       '2_columns_3_7': '2 cột 3/7',
        'text': 'Văn bản',
        'link': 'Đường dẫn',
        'image': 'Ảnh',

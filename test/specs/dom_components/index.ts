@@ -3,12 +3,13 @@ import Components from '../../../src/dom_components/model/Components';
 import EditorModel from '../../../src/editor/model/Editor';
 import Editor from '../../../src/editor';
 import utils from './../../test_utils.js';
+import { Component } from '../../../src';
 
 describe('DOM Components', () => {
   describe('Main', () => {
     var em: EditorModel;
     var obj: DomComponents;
-    var config;
+    var config: any;
     var storagMock = utils.storageMock();
     var editorModel = {
       config: {
@@ -71,7 +72,7 @@ describe('DOM Components', () => {
       setEm();
       // @ts-ignore
       const comps = new Components({}, {});
-      obj.getWrapper().set('components', comps);
+      obj.getWrapper()?.set('components', comps);
       obj.store();
       expect(obj.load({})).toEqual([{ test: 1 }]);
     });
@@ -112,34 +113,36 @@ describe('DOM Components', () => {
     });
 
     test('Add new component', () => {
-      var comp = obj.addComponent({});
+      obj.addComponent({});
       expect(obj.getComponents().length).toEqual(1);
     });
 
     test('Add more components at once', () => {
-      var comp = obj.addComponent([{}, {}]);
+      obj.addComponent([{}, {}]);
       expect(obj.getComponents().length).toEqual(2);
     });
 
     test('Import propertly components and styles with the same ids', () => {
-      obj = em.get('DomComponents');
-      const cc = em.get('CssComposer');
+      obj = em.Components;
+      const cc = em.Css;
       const id = 'idtest';
       const component = obj.addComponent(`
       <div id="${id}" style="color:red; padding: 50px 100px">Text</div>
       <style>
         #${id} { background-color: red }
-      </style>`);
+      </style>`) as Component;
       expect(em.getHtml({ component })).toEqual(`<div id="${id}">Text</div>`);
       expect(obj.getComponents().length).toEqual(1);
-      // @ts-ignore
-      obj.getComponents().first().addStyle({ margin: '10px' });
+      const firstComp = obj.getComponents().first();
+      firstComp.addStyle({ margin: '10px' });
+      firstComp.addStyle('width', '100px');
       expect(cc.getAll().length).toEqual(1);
-      expect(cc.getIdRule(id).getStyle()).toEqual({
+      expect(cc.getIdRule(id)!.getStyle()).toEqual({
         color: 'red',
         'background-color': 'red',
         padding: '50px 100px',
         margin: '10px',
+        width: '100px',
       });
     });
 
@@ -175,7 +178,6 @@ describe('DOM Components', () => {
       obj.addComponent(`<div test-prop="${testProp}"></div>`);
       const comp = obj.getComponents().at(0);
       expect(comp.get('type')).toEqual(id);
-      // @ts-ignore
       expect(comp.getAttributes()['test-prop']).toEqual(testProp);
     });
 
@@ -242,14 +244,13 @@ describe('DOM Components', () => {
 
     test('Remove and undo component with styles', done => {
       const id = 'idtest2';
-      const um = em.get('UndoManager');
-      const cc = em.get('CssComposer');
+      const um = em.UndoManager;
+      const cc = em.Css;
       const component = obj.addComponent(`
       <div id="${id}" style="color:red; padding: 50px 100px">Text</div>
       <style>
         #${id} { background-color: red }
-      </style>`);
-      // @ts-ignore
+      </style>`) as Component;
       obj.getComponents().first().addStyle({ margin: '10px' });
       const rule = cc.getAll().at(0);
       const css = `#${id}{background-color:red;margin:10px;color:red;padding:50px 100px;}`;
@@ -271,7 +272,7 @@ describe('DOM Components', () => {
         expect(rule.toCSS()).toEqual(css);
 
         done();
-      });
+      }, 300);
     });
 
     describe('Custom components with styles', () => {
@@ -293,14 +294,14 @@ describe('DOM Components', () => {
       });
 
       test('Custom style properly added', () => {
-        const cmp = obj.addComponent({ type: cmpId });
+        const cmp = obj.addComponent({ type: cmpId }) as Component;
         expect(cmp.is(cmpId)).toBe(true);
         const rule = em.Css.getRule(`.${cmpId}`);
         expect(rule?.getStyle()).toEqual({ color: 'red' });
       });
 
       test('Clean custom style when the related component is removed', () => {
-        const cmp = obj.addComponent({ type: cmpId });
+        const cmp = obj.addComponent({ type: cmpId }) as Component;
         expect(obj.getComponents().length).toBe(1);
         expect(em.Css.getAll().length).toBe(1);
         cmp.remove();

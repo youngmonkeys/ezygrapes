@@ -1,14 +1,16 @@
 import { bindAll } from 'underscore';
-import { ObjectAny } from '../../common';
+import { AddOptions, DisableOptions, ObjectAny } from '../../common';
 import RichTextEditorModule from '../../rich_text_editor';
 import RichTextEditor from '../../rich_text_editor/model/RichTextEditor';
-import { getModel, off, on } from '../../utils/mixins';
+import { off, on } from '../../utils/dom';
+import { getComponentModel } from '../../utils/mixins';
 import Component from '../model/Component';
+import { getComponentIds } from '../model/Components';
 import ComponentText from '../model/ComponentText';
 import { ComponentDefinition } from '../model/types';
 import ComponentView from './ComponentView';
 
-export default class ComponentTextView extends ComponentView {
+export default class ComponentTextView<TComp extends ComponentText = ComponentText> extends ComponentView<TComp> {
   rte?: RichTextEditorModule;
   rteEnabled?: boolean;
   activeRte?: RichTextEditor;
@@ -85,7 +87,7 @@ export default class ComponentTextView extends ComponentView {
     }
 
     ev?.stopPropagation?.();
-    this.lastContent = this.getContent();
+    this.lastContent = await this.getContent();
 
     if (rte) {
       try {
@@ -98,15 +100,15 @@ export default class ComponentTextView extends ComponentView {
     this.toggleEvents(true);
   }
 
-  onDisable() {
-    this.disableEditing();
+  onDisable(opts?: DisableOptions) {
+    this.disableEditing(opts);
   }
 
   /**
    * Disable element content editing
    * @private
    * */
-  async disableEditing(opts = {}) {
+  async disableEditing(opts: DisableOptions = {}) {
     const { model, rte, activeRte, em } = this;
     // There are rare cases when disableEditing is called when the view is already removed
     // so, we have to check for the model, this will avoid breaking stuff.
@@ -114,13 +116,13 @@ export default class ComponentTextView extends ComponentView {
 
     if (rte) {
       try {
-        await rte.disable(this, activeRte);
+        await rte.disable(this, activeRte, opts);
       } catch (err) {
         em.logError(err as any);
       }
 
-      if (editable && this.getContent() !== this.lastContent) {
-        this.syncContent(opts);
+      if (editable && (await this.getContent()) !== this.lastContent) {
+        await this.syncContent(opts);
         this.lastContent = '';
       }
     }
@@ -132,34 +134,44 @@ export default class ComponentTextView extends ComponentView {
    * get content from RTE
    * @return string
    */
-  getContent() {
-    const { activeRte } = this;
+  async getContent() {
+    const { rte, activeRte } = this;
+    let result = '';
 
-    return typeof activeRte?.getContent === 'function' ? activeRte.getContent() : this.getChildrenContainer().innerHTML;
+    if (rte) {
+      result = await rte.getContent(this, activeRte!);
+    }
+
+    return result;
   }
 
   /**
    * Merge content from the DOM to the model
    */
-  syncContent(opts: ObjectAny = {}) {
+  async syncContent(opts: ObjectAny = {}) {
     const { model, rte, rteEnabled } = this;
     if (!rteEnabled && !opts.force) return;
-    const content = this.getContent();
+    const content = await this.getContent();
     const comps = model.components();
     const contentOpt: ObjectAny = { fromDisable: 1, ...opts };
     model.set('content', '', contentOpt);
 
-    // If there is a custom RTE the content is just baked staticly
+    // If there is a custom RTE the content is just added staticly
     // inside 'content'
-    if (rte?.customRte) {
-      comps.length && comps.reset(undefined, opts);
+    if (rte?.customRte && !rte.customRte.parseContent) {
+      comps.length &&
+        comps.reset(undefined, {
+          ...opts,
+          // @ts-ignore
+          keepIds: getComponentIds(comps),
+        });
       model.set('content', content, contentOpt);
     } else {
       comps.resetFromString(content, opts);
     }
   }
 
-  insertComponent(content: ComponentDefinition, opts = {}) {
+  insertComponent(content: ComponentDefinition, opts: AddOptions & { useDomContent?: boolean } = {}) {
     const { model, el } = this;
     const doc = el.ownerDocument;
     const selection = doc.getSelection();
@@ -168,7 +180,7 @@ export default class ComponentTextView extends ComponentView {
       const range = selection.getRangeAt(0);
       const textNode = range.startContainer;
       const offset = range.startOffset;
-      const textModel = getModel(textNode) as ComponentText;
+      const textModel = getComponentModel(textNode);
       const newCmps: (ComponentDefinition | Component)[] = [];
 
       if (textModel && textModel.is?.('textnode')) {
@@ -176,7 +188,7 @@ export default class ComponentTextView extends ComponentView {
         cmps.forEach(cmp => {
           if (cmp === textModel) {
             const type = 'textnode';
-            const cnt = cmp.get('content') || '';
+            const cnt = opts.useDomContent ? textNode.textContent || '' : cmp.content;
             newCmps.push({ type, content: cnt.slice(0, offset) });
             newCmps.push(content);
             newCmps.push({ type, content: cnt.slice(offset) });
@@ -231,8 +243,8 @@ export default class ComponentTextView extends ComponentView {
 
     // The ownerDocument is from the frame
     var elDocs = [this.el.ownerDocument, document];
-    mixins.off(elDocs, 'mousedown', this.onDisable);
-    mixins[method](elDocs, 'mousedown', this.onDisable);
+    mixins.off(elDocs, 'mousedown', this.onDisable as any);
+    mixins[method](elDocs, 'mousedown', this.onDisable as any);
     em[method]('toolbar:run:before', this.onDisable);
     if (model) {
       model[method]('removed', this.onDisable);

@@ -1,4 +1,4 @@
-import { each, isFunction, isUndefined } from 'underscore';
+import { each, isArray, isFunction, isUndefined } from 'underscore';
 import { ObjectAny } from '../../common';
 import { CssRuleJSON } from '../../css_composer/model/CssRule';
 import { ComponentDefinitionDefined } from '../../dom_components/model/types';
@@ -9,14 +9,14 @@ import BrowserParserHtml from './BrowserParserHtml';
 type StringObject = Record<string, string>;
 
 type HTMLParseResult = {
-  html?: ComponentDefinitionDefined | ComponentDefinitionDefined[]; // TODO replace with components
+  html: ComponentDefinitionDefined | ComponentDefinitionDefined[]; // TODO replace with components
   css?: CssRuleJSON[];
 };
 
 const modelAttrStart = 'data-gjs-';
 const event = 'parse:html';
 
-const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
+const ParserHtml = (em?: EditorModel, config: ParserConfig & { returnArray?: boolean } = {}) => {
   return {
     compTypes: '',
 
@@ -77,14 +77,33 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
      * // {color: 'black', width: '100px', test: 'value'}
      */
     parseStyle(str: string) {
-      const result: StringObject = {};
+      const result: Record<string, string | string[]> = {};
+
+      while (str.indexOf('/*') >= 0) {
+        const start = str.indexOf('/*');
+        const end = str.indexOf('*/') + 2;
+        str = str.replace(str.slice(start, end), '');
+      }
+
       const decls = str.split(';');
 
       for (let i = 0, len = decls.length; i < len; i++) {
         const decl = decls[i].trim();
         if (!decl) continue;
         const prop = decl.split(':');
-        result[prop[0].trim()] = prop.slice(1).join(':').trim();
+        const key = prop[0].trim();
+        const value = prop.slice(1).join(':').trim();
+
+        // Support multiple values for the same key
+        if (result[key]) {
+          if (!isArray(result[key])) {
+            result[key] = [result[key] as string];
+          }
+
+          (result[key] as string[]).push(value);
+        } else {
+          result[key] = value;
+        }
       }
 
       return result;
@@ -241,6 +260,7 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
         // be text too otherwise I'm unable to edit texnodes
         const comps = model.components;
         if (!model.type && comps) {
+          const { textTypes = [], textTags = [] } = config;
           let allTxt = 1;
           let foundTextNode = 0;
 
@@ -248,12 +268,12 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
             const comp = comps[ci];
             const cType = comp.type;
 
-            if (['text', 'textnode'].indexOf(cType) < 0 && config.textTags!.indexOf(comp.tagName) < 0) {
+            if (!textTypes.includes(cType) && !textTags.includes(comp.tagName)) {
               allTxt = 0;
               break;
             }
 
-            if (cType == 'textnode') {
+            if (cType === 'textnode') {
               foundTextNode = 1;
             }
           }
@@ -264,7 +284,7 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
         }
 
         // If tagName is still empty and is not a textnode, do not push it
-        if (!model.tagName && model.type != 'textnode') {
+        if (!model.tagName && isUndefined(model.content)) {
           continue;
         }
 
@@ -280,9 +300,9 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
      * @param  {ParserCss} parserCss In case there is style tags inside HTML
      * @return {Object}
      */
-    parse(str: string, parserCss: any, opts: HTMLParserOptions = {}) {
+    parse(str: string, parserCss?: any, opts: HTMLParserOptions = {}) {
       const conf = em?.get('Config') || {};
-      const res: HTMLParseResult = {};
+      const res: HTMLParseResult = { html: [] };
       const cf: ObjectAny = { ...config, ...opts };
       const options = {
         ...config.optionsHtml,
@@ -290,7 +310,9 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
         htmlType: config.optionsHtml?.htmlType || config.htmlType,
         ...opts,
       };
-      const el = isFunction(cf.parserHtml) ? cf.parserHtml(str, options) : BrowserParserHtml(str, options);
+      const { preParser } = options;
+      const input = isFunction(preParser) ? preParser(str, { editor: em?.getEditor()! }) : str;
+      const el = isFunction(cf.parserHtml) ? cf.parserHtml(input, options) : BrowserParserHtml(input, options);
       const scripts = el.querySelectorAll('script');
       let i = scripts.length;
 
@@ -303,8 +325,8 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
       }
 
       // Remove unsafe attributes
-      if (!options.allowUnsafeAttr) {
-        this.__clearUnsafeAttr(el);
+      if (!options.allowUnsafeAttr || !options.allowUnsafeAttrValue) {
+        this.__sanitizeNode(el, options);
       }
 
       // Detach style tags and parse them
@@ -321,26 +343,28 @@ const ParserHtml = (em?: EditorModel, config: ParserConfig = {}) => {
         if (styleStr) res.css = parserCss.parse(styleStr);
       }
 
-      em && em.trigger(`${event}:root`, { input: str, root: el });
+      em?.trigger(`${event}:root`, { input, root: el });
       const result = this.parseNode(el, cf);
       // I have to keep it otherwise it breaks the DomComponents.addComponent (returns always array)
       const resHtml = result.length === 1 && !cf.returnArray ? result[0] : result;
       res.html = resHtml;
-      em && em.trigger(event, { input: str, output: res });
+      em?.trigger(event, { input, output: res });
 
       return res;
     },
 
-    __clearUnsafeAttr(node: HTMLElement) {
+    __sanitizeNode(node: HTMLElement, opts: HTMLParserOptions) {
       const attrs = node.attributes || [];
       const nodes = node.childNodes || [];
       const toRemove: string[] = [];
       each(attrs, attr => {
         const name = attr.nodeName || '';
-        name.indexOf('on') === 0 && toRemove.push(name);
+        const value = attr.nodeValue || '';
+        !opts.allowUnsafeAttr && name.startsWith('on') && toRemove.push(name);
+        !opts.allowUnsafeAttrValue && value.startsWith('javascript:') && toRemove.push(name);
       });
       toRemove.map(name => node.removeAttribute(name));
-      each(nodes, node => this.__clearUnsafeAttr(node as HTMLElement));
+      each(nodes, node => this.__sanitizeNode(node as HTMLElement, opts));
     },
   };
 };

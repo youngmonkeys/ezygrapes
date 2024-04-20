@@ -45,7 +45,7 @@ component.get('tagName');
 *   `layerable` **[Boolean][3]?** Set to `false` if you need to hide the component inside Layers. Default: `true`
 *   `selectable` **[Boolean][3]?** Allow component to be selected when clicked. Default: `true`
 *   `hoverable` **[Boolean][3]?** Shows a highlight outline when hovering on the element if `true`. Default: `true`
-*   `locked` **[Boolean][3]?** Disable the selection of the component and its children in the canvas. Default: `false`
+*   `locked` **[Boolean][3]?** Disable the selection of the component and its children in the canvas. You can unlock a children by setting its locked property to `false`. Default: `undefined`
 *   `void` **[Boolean][3]?** This property is used by the HTML exporter as void elements don't have closing tags, eg. `<br/>`, `<hr/>`, etc. Default: `false`
 *   `style` **[Object][2]?** Component default style, eg. `{ width: '100px', height: '100px', 'background-color': 'red' }`
 *   `styles` **[String][1]?** Component related styles, eg. `.my-component-class { color: red }`
@@ -62,6 +62,7 @@ component.get('tagName');
     Eg. `toolbar: [ { attributes: {class: 'fa fa-arrows'}, command: 'tlb-move' }, ... ]`.
     By default, when `toolbar` property is falsy the editor will add automatically commands `core:component-exit` (select parent component, added if there is one), `tlb-move` (added if `draggable`) , `tlb-clone` (added if `copyable`), `tlb-delete` (added if `removable`).
 *   `components` **Collection\<Component>?** Children components. Default: `null`
+*   `delegate` **[Object][2]?** Delegate commands to other components. Available commands `remove` | `move` | `copy` | `select`. eg. `{ remove: (cmp) => cmp.closestType('other-type') }`
 
 ## init
 
@@ -117,9 +118,15 @@ To get more about this feature read: [https://github.com/GrapesJS/grapesjs/issue
 
 ### Parameters
 
-*   `value` **[String][1]** Drag mode, options: 'absolute' | 'translate'
+*   `value` **[String][1]** Drag mode, options: `'absolute'` | `'translate'` | `''`
 
 Returns **this** 
+
+## getDragMode
+
+Get the drag mode of the component.
+
+Returns **[String][1]** Drag mode value, options: `'absolute'` | `'translate'` | `''`
 
 ## find
 
@@ -213,15 +220,16 @@ Replace a component with another one
 ### Parameters
 
 *   `el` **([String][1] | Component)** Component or HTML string
+*   `opts` **[Object][2]** Options for the append action (optional, default `{}`)
 
 ### Examples
 
 ```javascript
-component.replaceWith('<div>Some new content</div>');
-// -> Component
+const result = component.replaceWith('<div>Some new content</div>');
+// result -> [Component]
 ```
 
-Returns **(Component | [Array][5]\<Component>)** New added component/s
+Returns **[Array][5]\<Component>** New replaced components
 
 ## setAttributes
 
@@ -619,7 +627,13 @@ Returns **[Array][5]\<Trait>** Array of added traits
 
 ## getName
 
-Get the name of the component
+Get the name of the component.
+
+### Parameters
+
+*   `opts` **[Object][2]** Options (optional, default `{}`)
+
+    *   `opts.noCustom` **[Boolean][3]?** Avoid custom name assigned to the component.
 
 Returns **[String][1]** 
 
@@ -713,7 +727,7 @@ This works only if the component is already rendered
 
 ### Parameters
 
-*   `frame` **Frame** Specific frame from which taking the element (optional, default `undefined`)
+*   `frame` **Frame** Specific frame from which taking the element
 
 Returns **[HTMLElement][11]** 
 
@@ -745,6 +759,22 @@ component.onAll(component => {
 ```
 
 Returns **this** 
+
+## forEachChild
+
+Execute a callback function on all inner child components.
+
+### Parameters
+
+*   `clb` **[Function][4]** Callback function, the child component is passed as an argument
+
+### Examples
+
+```javascript
+component.forEachChild(child => {
+ console.log(child)
+})
+```
 
 ## remove
 
@@ -829,7 +859,7 @@ Returns **[Boolean][3]**
 
 [5]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
 
-[6]: https://github.com/GrapesJS/grapesjs/blob/master/src/utils/Resizer.js
+[6]: https://github.com/GrapesJS/grapesjs/blob/master/src/utils/Resizer.ts
 
 [7]: /modules/Components-js.html
 

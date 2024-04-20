@@ -151,32 +151,41 @@ $ yarn test
 
 ## Plugins
 
+[Official Plugins](https://github.com/orgs/GrapesJS/repositories?q=-repo%3Agrapesjs%2Fgrapesjs&type=source) | [Community Plugins](https://github.com/topics/grapesjs-plugin)
+
+### Wrappers
+
+* [@grapesjs/react](https://github.com/GrapesJS/react) - GrapesJS wrapper for React that allows you to build custom and declarative UI for your editor.
+
+
+
 ### Extensions
 * [grapesjs-plugin-export](https://github.com/GrapesJS/export) - Export GrapesJS templates in a zip archive
 * [grapesjs-plugin-filestack](https://github.com/GrapesJS/filestack) - Add Filestack uploader in Asset Manager
 * [grapesjs-plugin-ckeditor](https://github.com/GrapesJS/ckeditor) - Replaces the built-in RTE with CKEditor
-* [grapesjs-aviary](https://github.com/GrapesJS/aviary) - Add the Aviary Image Editor (dismissed, use the plugin below instead)
 * [grapesjs-tui-image-editor](https://github.com/GrapesJS/tui-image-editor) - GrapesJS TOAST UI Image Editor
 * [grapesjs-blocks-basic](https://github.com/GrapesJS/blocks-basic) - Basic set of blocks
-* [grapesjs-plugin-forms](https://github.com/GrapesJS/forms) - Set of form components and blocks
-* [grapesjs-navbar](https://github.com/GrapesJS/navbar) - Simple navbar component
-* [grapesjs-component-countdown](https://github.com/GrapesJS/component-countdown) - Simple countdown component
+* [grapesjs-plugin-forms](https://github.com/GrapesJS/components-forms) - Set of form components and blocks
+* [grapesjs-navbar](https://github.com/GrapesJS/components-navbar) - Simple navbar component
+* [grapesjs-component-countdown](https://github.com/GrapesJS/components-countdown) - Simple countdown component
 * [grapesjs-style-gradient](https://github.com/GrapesJS/style-gradient) - Add `gradient` type input to the Style Manager
 * [grapesjs-style-filter](https://github.com/GrapesJS/style-filter) - Add `filter` type input to the Style Manager
 * [grapesjs-style-bg](https://github.com/GrapesJS/style-bg) - Full-stack background style property type, with the possibility to add images, colors, and gradients
 * [grapesjs-blocks-flexbox](https://github.com/GrapesJS/blocks-flexbox) - Add the flexbox block
-* [grapesjs-lory-slider](https://github.com/GrapesJS/lory-slider) - Slider component by using [lory](https://github.com/meandmax/lory)
-* [grapesjs-tabs](https://github.com/GrapesJS/tabs) - Simple tabs component
-* [grapesjs-tooltip](https://github.com/GrapesJS/tooltip) - Simple, CSS only, tooltip component for GrapesJS
-* [grapesjs-custom-code](https://github.com/GrapesJS/custom-code) - Embed custom code
+* [grapesjs-lory-slider](https://github.com/GrapesJS/components-lory) - Slider component by using [lory](https://github.com/meandmax/lory)
+* [grapesjs-tabs](https://github.com/GrapesJS/components-tabs) - Simple tabs component
+* [grapesjs-tooltip](https://github.com/GrapesJS/components-tooltip) - Simple, CSS only, tooltip component for GrapesJS
+* [grapesjs-custom-code](https://github.com/GrapesJS/components-custom-code) - Embed custom code
 * [grapesjs-touch](https://github.com/GrapesJS/touch) - Enable touch support
-* [grapesjs-indexeddb](https://github.com/GrapesJS/indexeddb) - Storage wrapper for IndexedDB
-* [grapesjs-firestore](https://github.com/GrapesJS/firestore) - Storage wrapper for [Cloud Firestore](https://firebase.google.com/docs/firestore)
+* [grapesjs-indexeddb](https://github.com/GrapesJS/storage-indexeddb) - Storage wrapper for IndexedDB
+* [grapesjs-firestore](https://github.com/GrapesJS/storage-firestore) - Storage wrapper for [Cloud Firestore](https://firebase.google.com/docs/firestore)
 * [grapesjs-parser-postcss](https://github.com/GrapesJS/parser-postcss) - Custom CSS parser for GrapesJS by using [PostCSS](https://github.com/postcss/postcss)
-* [grapesjs-typed](https://github.com/GrapesJS/typed) - Typed component made by wrapping Typed.js library
+* [grapesjs-typed](https://github.com/GrapesJS/components-typed) - Typed component made by wrapping Typed.js library
 * [grapesjs-ui-suggest-classes](https://github.com/silexlabs/grapesjs-ui-suggest-classes) - Enable auto-complete of classes in the SelectorManager UI
 * [grapesjs-fonts](https://github.com/silexlabs/grapesjs-fonts) - Custom Fonts plugin, adds a UI to manage fonts in websites
 * [grapesjs-symbols](https://github.com/silexlabs/grapesjs-symbols) - Symbols plugin to reuse elements in a website and accross pages
+* [grapesjs-click](https://github.com/bgrand-ch/grapesjs-click) - Grab and drop blocks and components with click (no more drag-and-drop)
+* [grapesjs-float](https://github.com/bgrand-ch/grapesjs-float) - Anchor a floating element next to another element (selected component, ...)
 
 ### Presets
 * [grapesjs-preset-webpage](https://github.com/GrapesJS/preset-webpage) - Webpage Builder

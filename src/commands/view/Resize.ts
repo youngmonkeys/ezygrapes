@@ -1,4 +1,4 @@
-import Resizer from '../../utils/Resizer';
+import Resizer, { ResizerOptions } from '../../utils/Resizer';
 import { CommandObject } from './CommandAbstract';
 
 export default {
@@ -6,11 +6,11 @@ export default {
     const opt = opts || {};
     const canvas = editor.Canvas;
     const canvasView = canvas.getCanvasView();
-    const options = {
+    const options: ResizerOptions = {
       appendTo: canvas.getResizerEl(),
       prefix: editor.getConfig().stylePrefix,
       posFetcher: canvasView.getElementPos.bind(canvasView),
-      mousePosFetcher: canvas.getMouseRelativePos,
+      mousePosFetcher: canvas.getMouseRelativePos.bind(canvas),
       ...(opt.options || {}),
     };
     let { canvasResizer } = this;

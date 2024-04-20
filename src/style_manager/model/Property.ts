@@ -4,6 +4,8 @@ import Component from '../../dom_components/model/Component';
 import EditorModel from '../../editor/model/Editor';
 import { capitalize, camelCase, hasWin } from '../../utils/mixins';
 import Sector from './Sector';
+import PropertyComposite from './PropertyComposite';
+import { StyleProps } from '../../domain_abstract/model/StyleableModel';
 
 /** @private */
 export interface PropertyProps {
@@ -70,8 +72,6 @@ export interface PropertyProps {
   __p?: any;
 }
 
-export type StyleProps = Record<string, string>;
-
 export type OptionsUpdate = {
   partial?: boolean;
   noTarget?: boolean;
@@ -106,7 +106,9 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
     return result(this.prototype, 'defaults');
   }
 
-  /** @ts-ignore */
+  /**
+   * @private
+   * @ts-ignore */
   defaults() {
     return {
       name: '',
@@ -144,12 +146,12 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
     Property.callInit(this, props, opts);
   }
 
-  __getParentProp() {
+  __getParentProp<T = PropertyComposite>(): T {
     // @ts-ignore
     return this.collection?.opts?.parentProp;
   }
 
-  __upTargets(p: this, opts: any = {}) {
+  __upTargets(p: this, opts: any = {}): void {
     const { em } = this;
     const sm = em.Styles;
     const name = this.getName();
@@ -183,7 +185,6 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
     const { partial, ...rest } = opts;
     // @ts-ignore
     props.__p = !!(rest.avoidStore || partial);
-    // @ts-ignore
     return this.set(props, { ...rest, avoidStore: props.__p });
   }
 
@@ -276,7 +277,7 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
    * console.log(property.getStyle());
    * // { color: 'red' };
    */
-  getStyle(opts: OptionsStyle = {}) {
+  getStyle(opts: OptionsStyle = {}): StyleProps {
     const name = this.getName();
     const key = opts.camelCase ? camelCase(name) : name;
     return { [key]: this.__getFullValue(opts) };
@@ -327,7 +328,7 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
    * Indicates if the current value comes directly from the selected target and so can be cleared.
    * @returns {Boolean}
    */
-  canClear() {
+  canClear(): boolean {
     const parent = this.getParent();
     return parent ? parent.__canClearProp(this) : this.hasValue({ noParent: true });
   }
@@ -337,7 +338,7 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
    * @returns {[Property]|null}
    */
   getParent() {
-    return this.__getParentProp() || null;
+    return this.__getParentProp();
   }
 
   /**
@@ -368,7 +369,6 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
     const avoidStore = !complete;
     // @ts-ignore
     !avoidStore && this.set({ value: undefined }, { avoidStore, silent: true });
-    // @ts-ignore
     this.set(parsed, { avoidStore, ...opts });
   }
 
@@ -400,34 +400,38 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
   parseValue(value: string, opts: { complete?: boolean; numeric?: boolean } = {}): Partial<T> {
     const result = { value } as any;
     const imp = '!important';
+    const fn = this.get('functionName') || '';
 
     if (isString(value) && value.indexOf(imp) !== -1) {
       result.value = value.replace(imp, '').trim();
       result.important = true;
     }
 
-    if (!this.get('functionName') && !opts.complete) {
+    if (!fn && !opts.complete) {
       return result;
     }
 
     const args = [];
-    let valueStr = `${result.value}`;
-    let start = valueStr.indexOf('(') + 1;
-    let end = valueStr.lastIndexOf(')');
-    const functionName = valueStr.substring(0, start - 1);
-    if (functionName) result.functionName = functionName;
-    args.push(start);
+    const valueStr = `${result.value}`.trim();
+    const start = valueStr.indexOf('(') + 1;
+    const functionName = fn || valueStr.substring(0, start - 1);
 
-    // Will try even if the last closing parentheses is not found
-    if (end >= 0) {
-      args.push(end);
+    if (functionName) {
+      result.functionName = functionName;
     }
 
-    result.value = String.prototype.substring.apply(valueStr, args as any);
+    if (!fn || valueStr.indexOf(`${fn}(`) === 0) {
+      const end = valueStr.lastIndexOf(')');
+      args.push(start);
+
+      // Will try even if the last closing parentheses is not found
+      end >= 0 && args.push(end);
+
+      result.value = String.prototype.substring.apply(valueStr, args as any);
+    }
 
     if (opts.numeric) {
       const num = parseFloat(result.value);
-      // @ts-ignore
       result.unit = result.value.replace(num, '');
       result.value = num;
     }
@@ -487,7 +491,7 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
   getFullValue(val?: string, opts: any = {}) {
     const fn = this.get('functionName');
     const def = this.getDefaultValue();
-    let value = isUndefined(val) ? this.get('value') : val;
+    let value = isUndefined(val) ? (this.get('value') as string) : val;
     const hasValue = !isUndefined(value) && value !== '';
 
     if (value && def && value === def) {
@@ -495,7 +499,6 @@ export default class Property<T extends Record<string, any> = PropertyProps> ext
     }
 
     if (fn && hasValue) {
-      // @ts-ignore
       const fnParameter = fn === 'url' ? `'${value.replace(/'|"/g, '')}'` : value;
       value = `${fn}(${fnParameter})`;
     }
@@ -600,8 +603,3 @@ Property.callParentInit = function (property, ctx, props, opts = {}) {
 Property.callInit = function (context, props, opts: any = {}) {
   !opts.skipInit && context.init(props, opts);
 };
-
-// @ts-ignore
-// Property.getDefaults = function () {
-//   return result(this.prototype, 'defaults');
-// };

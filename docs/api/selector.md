@@ -11,7 +11,7 @@
 *   `type` **[Number][2]?** Type of the selector. 1 (class) | 2 (id)
 *   `active` **[Boolean][3]?** If not active, it's not selectable by the Style Manager.
 *   `private` **[Boolean][3]?** If true, it can't be seen by the Style Manager, but it will be rendered in the canvas and in export code.
-*   `protected` **[Boolean][3]?** If true, it can't be removed from the attacched component.
+*   `protected` **[Boolean][3]?** If true, it can't be removed from the attached component.
 
 ### toString
 
@@ -23,6 +23,20 @@ Get selector as a string.
 // Given such selector: { name: 'my-selector', type: 2 }
 console.log(selector.toString());
 // -> `#my-selector`
+```
+
+Returns **[String][1]** 
+
+### getName
+
+Get selector name.
+
+#### Examples
+
+```javascript
+// Given such selector: { name: 'my-selector', label: 'My selector' }
+console.log(selector.getName());
+// -> `my-selector`
 ```
 
 Returns **[String][1]** 
