@@ -7,9 +7,18 @@ export default function (editor, opts = {}) {
       label: editor.I18n.t('font_icon'),
       category: editor.I18n.t('extra'),
       attributes: {class: 'fa-solid fa-icons', style: 'font-size: 1.5rem; font-weight: 900'},
-      content: `
-        <i class="fa-solid fa-star"></i>
-      `
+      content: () => {
+          return `
+          <div class="${generateRandomClass()}">
+            <i class="${cssClass} ${generateRandomClass()}"></i>
+          </div>
+        `
+      },
     });
+  }
+
+  function generateRandomClass() {
+    const randomString = Math.random().toString(36).slice(2, 8);
+    return `random-class-${randomString}`;
   }
 }

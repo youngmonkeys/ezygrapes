@@ -9,6 +9,7 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
       'column3',
       'column4',
       'column4-8',
+      'empty_block',
       'text',
       'link',
       'image',

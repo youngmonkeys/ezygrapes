@@ -109,6 +109,23 @@ export default function(editor, opts = {}) {
         `
     });
 
+  toAdd('empty_block') &&
+    bm.add('empty_block', {
+      label: `
+        <svg viewBox="0 0 24 24">
+          <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"></path>
+        </svg>
+        <div class="gjs-block-label">${editor.I18n.t('empty_block')}</div>`,
+      category: categoryName,
+      content: {
+        type: 'div',
+        style: { 
+          'min-height': '100px',
+        },
+        content: '',
+      }
+    });
+
   toAdd('text') &&
     bm.add('text', {
       label: `
