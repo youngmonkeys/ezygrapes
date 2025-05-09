@@ -1,4 +1,7 @@
 export default (editor) => {
+  editor.on('load', (editor) => {
+    addZIndexProperty(editor);
+  });
   editor.on('component:add', (component) => {
     if (component.is('image') && !component.getStyle()['object-fit']) {
         component.addStyle({ 'object-fit': 'cover' });
@@ -69,4 +72,17 @@ function addFlexAttributes(editor) {
       }
     });
   }
+}
+
+function addZIndexProperty(editor) {
+  const sm = editor.StyleManager;
+
+  sm.addProperty('extra', {
+    name: 'z-index',
+    property: 'z-index',
+    type: 'integer',
+    defaults: '1',
+    full: true,
+    attributes: { class: 'gjs-width-100' }
+  });
 }

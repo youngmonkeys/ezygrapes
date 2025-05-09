@@ -3,6 +3,10 @@
 @import "../components/filestack/scss/main.scss";
 @import "../components/forms/scss/main.scss";
 
+.gjs-sm-property--full .gjs-field {
+  width: 100%;
+}
+
 /****
 .#{$prefix} {
   @each $cnum, $ccol in (one, $primaryColor), (two, $secondaryColor), (three, $tertiaryColor), (four, $quaternaryColor) {
