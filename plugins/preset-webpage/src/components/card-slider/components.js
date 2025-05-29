@@ -109,8 +109,6 @@ export default (editor) => {
     extend: 'image',
     model: {
       defaults: {
-        // copyable: false,
-        // pastable: false,
         draggable: false,
         droppable: false,
         traits: [
@@ -133,130 +131,157 @@ export default (editor) => {
     },
   });
 
+  const originalDeleteCommand = editor.Commands.get('core:component-delete');
+
   editor.Commands.add('core:component-delete', {
     run(editor, sender, options) {
       const selected = editor.getSelected();
-      if (!selected) return;
-
+      if (!selected) {
+        return;
+      };
+  
       let target = selected;
-
-      if (selected.is('image')) {
-        const parent = selected.parent();
+  
+      if (target.is('image')) {
+        const parent = target.parent();
         if (parent && parent.is('card-slider-slide')) {
           target = parent;
         }
       }
-
-      let containerToDelete = target;
-      const parent = target.parent();
-      if (!parent) return;
-
-      const isDesktop = !!parent.closest('.slider-wrapper-desktop');
-      const isMobile = !!parent.closest('.swiper-wrapper');
-
-      if (isMobile) {
-        alert('Please switch to desktop view to delete slides.');
+  
+      if (!target.is('card-slider-slide')) {
+        originalDeleteCommand.run(editor, sender, options);
         return;
       }
-
+  
+      const parent = target.parent();
+      if (!parent) {
+        return;
+      };
+  
+      const isDesktop = !!parent.closest('.slider-wrapper-desktop');
+      const isMobile = !!parent.closest('.swiper-wrapper');
+  
+      if (isMobile) {
+        alert(editor.I18n.t("errors.card_slider.mobile_delete"))
+        return;
+      }
+  
       let slides = [];
-
+  
       if (isDesktop) {
         slides = parent.components().filter((comp) => comp.is('card-slider-slide'));
       }
-
+  
       if (slides.length <= 3) {
-        alert('You must keep at least 3 slides.');
+        alert(editor.I18n.t("errors.card_slider.item_min"));
         return;
       }
-
-      const idx = slides.indexOf(containerToDelete);
-      containerToDelete.remove();
+  
+      const idx = slides.indexOf(target);
+      target.remove();
+  
       const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
       if (mobileWrapper) {
-        const mobileSlides = mobileWrapper.components().filter((comp) => comp.getClasses().includes('swiper-slide'));
+        const mobileSlides = mobileWrapper.components().filter((comp) =>
+          comp.getClasses().includes('swiper-slide')
+        );
         const targetMobileSlide = mobileSlides[idx];
         if (targetMobileSlide) {
           targetMobileSlide.remove();
         }
       }
-    },
+    }
   });
+
+  const originalPasteCommand = editor.Commands.get('core:paste');
 
   editor.Commands.add('core:paste', {
     run(editor) {
       const selected = editor.getSelected();
-      if (!selected) return;
-
+      if (!selected) {
+        return;
+      };
+  
       let target = selected;
-
-      if (selected.is('image')) {
-        const parent = selected.parent();
+  
+      if (target.is('image')) {
+        const parent = target.parent();
         if (parent && parent.is('card-slider-slide')) {
           target = parent;
         }
       }
-
-      const parent = target.parent();
-      if (!parent) return;
-
-      const isDesktop = !!parent.closest('.slider-wrapper-desktop');
-      const isMobile = !!parent.closest('.swiper-wrapper');
-
-      if (isMobile) {
-        alert('Please switch to desktop view to add slides.');
+  
+      if (!target.is('card-slider-slide')) {
+        originalPasteCommand.run(editor);
         return;
       }
-
+  
+      const parent = target.parent();
+      if (!parent) {
+        return;
+      };
+  
+      const isDesktop = !!parent.closest('.slider-wrapper-desktop');
+      const isMobile = !!parent.closest('.swiper-wrapper');
+  
+      if (isMobile) {
+        alert(editor.I18n.t("errors.card_slider.mobile_add"))
+        return;
+      }
+  
       let slides = [];
-
+  
       if (isDesktop) {
         slides = parent.components().filter((comp) => comp.is('card-slider-slide'));
       }
-
+  
       if (slides.length >= 5) {
-        alert('You cannot add more than 5 slides.');
+        alert(editor.I18n.t("errors.card_slider.item_max"));
         return;
       }
-
-      if (target.is('card-slider-slide')) {
-        const cloned = target.clone();
-        parent.append(cloned);
-        editor.select(cloned);
-
-        const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
-        if (mobileWrapper) {
-          mobileWrapper.append({
-            tagName: 'div',
-            attributes: { class: 'swiper-slide' },
-            components: [
-              {
-                type: 'card-slider-slide',
-                attributes: cloned.getAttributes(),
-                components: cloned.components().map((child) => child.toJSON()),
-              },
-            ],
-          });
-        }
-      } else {
-        alert('Only card-slides or images inside slides can be pasted.');
+  
+      const cloned = target.clone();
+      parent.append(cloned);
+      editor.select(cloned);
+  
+      const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
+      if (mobileWrapper) {
+        mobileWrapper.append({
+          tagName: 'div',
+          attributes: { class: 'swiper-slide' },
+          components: [
+            {
+              type: 'card-slider-slide',
+              attributes: cloned.getAttributes(),
+              components: cloned.components().map((child) => child.toJSON()),
+            },
+          ],
+        });
       }
-    },
+    }
   });
+  
   function syncDesktopToMobile(editor) {
     const desktopWrapper = editor.getWrapper().find('.slider-wrapper-desktop')[0];
     const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
-    if (!desktopWrapper || !mobileWrapper) return;
+    if (!desktopWrapper || !mobileWrapper) {
+      return;
+    };
   
     const desktopSlides = desktopWrapper.components().filter((comp) => comp.is('card-slider-slide'));
     const mobileSlides = mobileWrapper.components().filter((comp) => comp.getClasses().includes('swiper-slide'));
   
     desktopSlides.forEach((desktopSlide, idx) => {
       const mobileSlide = mobileSlides[idx];
-      if (!mobileSlide) return;
+      if (!mobileSlide) {
+        return;
+      };
   
       const mobileLink = mobileSlide.components().filter((comp) => comp.is('card-slider-slide'))[0];
-      if (!mobileLink) return;
+      if (!mobileLink) {
+        return;
+      };
   
       const href = desktopSlide.get('href') || '';
       const target = desktopSlide.get('target') || '_self';
@@ -281,17 +306,23 @@ export default (editor) => {
   function syncMobileToDesktop(editor) {
     const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
     const desktopWrapper = editor.getWrapper().find('.slider-wrapper-desktop')[0];
-    if (!mobileWrapper || !desktopWrapper) return;
+    if (!mobileWrapper || !desktopWrapper) {
+      return;
+    };
   
     const mobileSlides = mobileWrapper.components().filter((comp) => comp.getClasses().includes('swiper-slide'));
     const desktopSlides = desktopWrapper.components().filter((comp) => comp.is('card-slider-slide'));
   
     mobileSlides.forEach((mobileSlide, idx) => {
       const desktopSlide = desktopSlides[idx];
-      if (!desktopSlide) return;
+      if (!desktopSlide) {
+        return;
+      };
   
       const mobileLink = mobileSlide.components().filter((comp) => comp.is('card-slider-slide'))[0];
-      if (!mobileLink) return;
+      if (!mobileLink) {
+        return;
+      };
   
       const href = mobileLink.get('href') || '';
       const target = mobileLink.get('target') || '_self';
@@ -314,11 +345,17 @@ export default (editor) => {
     });
   }
   editor.on('component:update:attributes', (model) => {
-    if (!model) return;
-    if (!model.is('card-slider-slide') && !model.is('image')) return;
+    if (!model) {
+      return;
+    };
+    if (!model.is('card-slider-slide') && !model.is('image')) {
+      return;
+    };
 
     const parent = model.parent();
-    if (!parent) return;
+    if (!parent) {
+      return;
+    };
 
     const isDesktop = !!parent.closest('.slider-wrapper-desktop');
     const isMobile = !!parent.closest('.swiper-wrapper');

@@ -64,5 +64,14 @@
   "gap": "Gap",
   "row_gap": "Row Gap",
   "column_gap": "Column Gap",
-  "card-slider": "Card Slider"
+  "card-slider": "Card Slider",
+  "postcards": "Postcards",
+  "errors": {
+    "card_slider": {
+      "mobile_add": "Please switch to desktop view to add slides.",
+      "mobile_delete": "Please switch to desktop view to delete slides.",
+      "item_max": "You cannot add more than 5 slides.",
+      "item_min": "You must keep at least 3 slides."
+    }
+  }
 }

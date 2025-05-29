@@ -64,5 +64,14 @@
   "gap": "Khoảng cách",
   "row_gap": "Khoảng cách hàng",
   "column_gap": "Khoảng cách cột",
-  "card-slider": "Thẻ trượt"
+  "card-slider": "Thẻ trượt",
+  "postcards": "Bưu thiếp",
+  "errors": {
+    "card_slider": {
+      "mobile_add": "Vui lòng chuyển sang chế độ xem máy tính để thêm các slide.",
+      "mobile_delete": "Vui lòng chuyển sang chế độ xem máy tính để xóa các slide.",
+      "item_max": "Bạn không thể thêm nhiều hơn 5 slide.",
+      "item_min": "Bạn phải giữ ít nhất 3 slide."
+    }
+  }
 }
