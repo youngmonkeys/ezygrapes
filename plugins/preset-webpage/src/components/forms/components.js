@@ -77,7 +77,6 @@ export default function(editor, opts = {}) {
     model: {
       defaults: {
         tagName: 'input',
-        draggable: 'form, form *',
         droppable: false,
         highlightable: false,
         attributes: { type: 'text' },

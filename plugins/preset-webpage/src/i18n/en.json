@@ -64,5 +64,6 @@
   "gap": "Gap",
   "row_gap": "Row Gap",
   "column_gap": "Column Gap",
-  "card-slider": "Card Slider"
+  "card-slider": "Card Slider",
+  "on_click": "On Click"
 }

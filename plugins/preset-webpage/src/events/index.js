@@ -37,6 +37,8 @@ export default (editor) => {
     if (display === 'flex') {
       addFlexAttributes(editor);
     }
+
+    addOnclickEvent(editor, model);
   });
 
   editor.on('style:property:update', ({ property, value }) => {
@@ -156,4 +158,20 @@ function addZIndexProperty(editor) {
     full: true,
     attributes: { class: 'gjs-width-100' }
   });
+}
+
+function addOnclickEvent(editor, component) {
+  if (!component || component.is('wrapper')) {
+    return;
+  }
+  const traits = component.get('traits') || [];
+  const hasOnclickTrait = traits.some(trait => trait.name === 'onclick');
+  if (!hasOnclickTrait) {
+    component.addTrait({
+      name: 'onclick',
+      label: editor.I18n.t('on_click'),
+      type: 'text',
+      placeholder: "e.g., alert('Hello')"
+    });
+  }
 }

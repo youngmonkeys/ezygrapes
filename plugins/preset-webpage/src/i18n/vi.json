@@ -64,5 +64,6 @@
   "gap": "Khoảng cách",
   "row_gap": "Khoảng cách hàng",
   "column_gap": "Khoảng cách cột",
-  "card-slider": "Thẻ trượt"
+  "card-slider": "Thẻ trượt",
+  "on_click": "On click"
 }
