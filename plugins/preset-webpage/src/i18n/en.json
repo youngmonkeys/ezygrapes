@@ -68,5 +68,11 @@
   "on_click": "On Click",
   "unordered_list": "Unordered List",
   "ordered_list": "Ordered List",
-  "list_style": "List Style"
+  "list_style": "List Style",
+  "disc": "Disc",
+  "circle": "Circle",
+  "square": "Square",
+  "decimal": "Decimal",
+  "lower_alpha": "Lower Alpha",
+  "upper_roman": "Upper Roman"
 }

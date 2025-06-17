@@ -189,20 +189,28 @@ function addObjectFitProperty(editor) {
 }
 
 function addListStyleProperty(editor) {
-  editor.StyleManager.addProperty('extra', {
-    property: 'list-style-type',
-    type: 'select',
-    label: editor.I18n.t('list_style'),
-    defaults: 'disc',
-    options: [
-      { value: 'disc', name: 'Disc' },
-      { value: 'circle', name: 'Circle' },
-      { value: 'square', name: 'Square' },
-      { value: 'decimal', name: 'Decimal' },
-      { value: 'lower-alpha', name: 'Lower Alpha' },
-      { value: 'upper-roman', name: 'Upper Roman' }
-    ],
-    full: true,
-    attributes: { class: 'gjs-width-100' }
-  });
+  const sm = editor.StyleManager;
+  const sector = sm.getSector('extra')
+    || sm.addSector('extra', { name: 'Extra', open: true });
+  const propertyExists = sector
+    .getProperties()
+    .some(prop => prop.get('property') === 'list-style-type');
+  if (!propertyExists) {
+    editor.StyleManager.addProperty('extra', {
+      property: 'list-style-type',
+      type: 'select',
+      label: editor.I18n.t('list_style'),
+      defaults: 'disc',
+      options: [
+        { value: 'disc', name: editor.I18n.t('disc') },
+        { value: 'circle', name: editor.I18n.t('circle') },
+        { value: 'square', name: editor.I18n.t('square') },
+        { value: 'decimal', name: editor.I18n.t('decimal') },
+        { value: 'lower-alpha', name: editor.I18n.t('lower_alpha') },
+        { value: 'upper-roman', name: editor.I18n.t('upper_roman') }
+      ],
+      full: true,
+      attributes: { class: 'gjs-width-100' }
+    });
+  }
 }

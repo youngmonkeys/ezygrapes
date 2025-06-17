@@ -68,5 +68,11 @@
   "on_click": "On click",
   "unordered_list": "Danh sách không thứ tự",
   "ordered_list": "Danh sách có thứ tự",
-  "list_style": "Kiểu danh sách"
+  "list_style": "Kiểu danh sách",
+  "disc": "Đĩa",
+  "circle": "Hình tròn",
+  "square": "Hình vuông",
+  "decimal": "Số hệ 10",
+  "lower_alpha": "Chữ viết thường",
+  "upper_roman": "Ký tự la mã viết hoa"
 }
