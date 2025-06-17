@@ -348,4 +348,50 @@ export default function(editor, opts = {}) {
       <p class="paragraph">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</p>
       </section>`
   });
+
+  toAdd('list-basic') && bm.add('list-basic', {
+    category: categoryName,
+    label: `
+      <svg class="gjs-block-svg" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="2" height="2" rx="1" fill="currentColor"/>
+        <rect x="3" y="11" width="2" height="2" rx="1" fill="currentColor"/>
+        <rect x="3" y="17" width="2" height="2" rx="1" fill="currentColor"/>
+        <rect x="7" y="5" width="14" height="2" rx="1" fill="currentColor"/>
+        <rect x="7" y="11" width="14" height="2" rx="1" fill="currentColor"/>
+        <rect x="7" y="17" width="14" height="2" rx="1" fill="currentColor"/>
+      </svg>
+      <div class="gjs-block-label">${editor.I18n.t('unordered_list')}</div>`,
+    attributes: { class: 'gjs-fonts gjs-f-list' },
+    content: {
+      tagName: 'ul',
+      components: [
+        { tagName: 'li', content: 'List item 1' },
+        { tagName: 'li', content: 'List item 2' },
+        { tagName: 'li', content: 'List item 3' },
+      ]
+    }
+  });
+
+  toAdd('ordered-list') && bm.add('ordered-list', {
+    category: categoryName,
+    label: `
+      <svg class="gjs-block-svg" viewBox="0 0 24 24">
+        <text x="2" y="7" font-size="5" fill="currentColor">1</text>
+        <text x="2" y="13" font-size="5" fill="currentColor">2</text>
+        <text x="2" y="19" font-size="5" fill="currentColor">3</text>
+        <rect x="7" y="4.5" width="14" height="1.5" fill="currentColor" rx="0.75"/>
+        <rect x="7" y="10.5" width="14" height="1.5" fill="currentColor" rx="0.75"/>
+        <rect x="7" y="16.5" width="14" height="1.5" fill="currentColor" rx="0.75"/>
+      </svg>
+      <div class="gjs-block-label">${editor.I18n.t('ordered_list')}</div>`,
+    attributes: { class: 'gjs-fonts gjs-f-ol' },
+    content: {
+      tagName: 'ol',
+      components: [
+        { tagName: 'li', content: 'Step 1' },
+        { tagName: 'li', content: 'Step 2' },
+        { tagName: 'li', content: 'Step 3' },
+      ]
+    }
+  });
 }

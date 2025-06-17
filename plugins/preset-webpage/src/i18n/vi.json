@@ -65,5 +65,8 @@
   "row_gap": "Khoảng cách hàng",
   "column_gap": "Khoảng cách cột",
   "card-slider": "Thẻ trượt",
-  "on_click": "On click"
+  "on_click": "On click",
+  "unordered_list": "Danh sách không thứ tự",
+  "ordered_list": "Danh sách có thứ tự",
+  "list_style": "Kiểu danh sách"
 }

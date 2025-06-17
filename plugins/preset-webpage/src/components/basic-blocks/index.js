@@ -1,5 +1,6 @@
 import ezygrapes from 'ezygrapes';
 import loadBlocks from './blocks';
+import loadComponents from './components';
 
 export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => {
   const config = {
@@ -20,7 +21,9 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
       'map',
       'text-basic',
       'link-block',
-      'quote'
+      'quote',
+      'list-basic',
+      'ordered-list'
     ],
     category: 'basic',
     ...opts,
@@ -28,4 +31,5 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
 
   // Add blocks
   loadBlocks(editor, config);
+  loadComponents(editor);
 });

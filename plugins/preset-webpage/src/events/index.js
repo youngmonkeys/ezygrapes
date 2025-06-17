@@ -11,25 +11,7 @@ export default (editor) => {
   });
   editor.on('component:selected', model => {
     if (model.is('image')) {
-      const sm = editor.StyleManager;
-      const sector = sm.getSector('extra') || sm.addSector('extra', { name: 'Extra', open: true });
-      const propertyExists = sector.getProperties().some(prop => prop.get('property') === 'object-fit');
-      if (!propertyExists) {
-      sm.addProperty(sector.getId(), {
-        name: 'Object Fit',
-        property: 'object-fit',
-        type: 'select',
-        defaults: 'cover',
-        full: true,
-        options: [
-        { value: 'fill', name: 'fill' },
-        { value: 'contain', name: 'contain' },
-        { value: 'cover', name: 'cover' },
-        { value: 'none', name: 'none' },
-        { value: 'scale-down', name: 'scale-down' }
-        ]
-      });
-      }
+      addObjectFitProperty(editor);
     }
     const styles = model.getStyle();
     const display = styles.display;
@@ -39,6 +21,11 @@ export default (editor) => {
     }
 
     addOnclickEvent(editor, model);
+
+    const tag = model.get('tagName');
+    if (['ul', 'ol'].includes(tag)) {
+      addListStyleProperty(editor);
+    }
   });
 
   editor.on('style:property:update', ({ property, value }) => {
@@ -174,4 +161,48 @@ function addOnclickEvent(editor, component) {
       placeholder: "e.g., alert('Hello')"
     });
   }
+}
+
+function addObjectFitProperty(editor) {
+  const sm = editor.StyleManager;
+  const sector = sm.getSector('extra')
+    || sm.addSector('extra', { name: 'Extra', open: true });
+  const propertyExists = sector
+    .getProperties()
+    .some(prop => prop.get('property') === 'object-fit');
+  if (!propertyExists) {
+    sm.addProperty(sector.getId(), {
+      name: 'Object Fit',
+      property: 'object-fit',
+      type: 'select',
+      defaults: 'cover',
+      full: true,
+      options: [
+      { value: 'fill', name: 'fill' },
+      { value: 'contain', name: 'contain' },
+      { value: 'cover', name: 'cover' },
+      { value: 'none', name: 'none' },
+      { value: 'scale-down', name: 'scale-down' }
+      ]
+    });
+  }
+}
+
+function addListStyleProperty(editor) {
+  editor.StyleManager.addProperty('extra', {
+    property: 'list-style-type',
+    type: 'select',
+    label: editor.I18n.t('list_style'),
+    defaults: 'disc',
+    options: [
+      { value: 'disc', name: 'Disc' },
+      { value: 'circle', name: 'Circle' },
+      { value: 'square', name: 'Square' },
+      { value: 'decimal', name: 'Decimal' },
+      { value: 'lower-alpha', name: 'Lower Alpha' },
+      { value: 'upper-roman', name: 'Upper Roman' }
+    ],
+    full: true,
+    attributes: { class: 'gjs-width-100' }
+  });
 }

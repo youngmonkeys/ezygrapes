@@ -8,7 +8,7 @@ export const typeButton = 'button';
 export const typeLabel = 'label';
 export const typeOption = 'option';
 
-export default function(editor, opts = {}) {
+export default function(editor) {
   const domc = editor.DomComponents;
 
   const idTrait = {
