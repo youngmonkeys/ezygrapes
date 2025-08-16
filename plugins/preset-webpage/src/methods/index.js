@@ -24,25 +24,46 @@ export default (editor) => {
   };
 
   editor.generatePageFullHtml = function () {
-    const html = this.getInnerHtml();
-    const css = this.getInnerCss();
-    const js = this.getJs();
-
-    return generatePageFullHtml(html, css, js);
+    return generatePageFullHtml(
+      this.getPageIconUrl ? this.getPageIconUrl() : '',
+      this.getPageTitle ? this.getPageTitle() : '',
+      this.getPageSummary ? this.getPageSummary() : '',
+      this.getPageImageUrl ? this.getPageImageUrl() : '',
+      this.getAdditionPageHeader ? this.getAdditionPageHeader() : '',
+      this.getInnerHtml(),
+      this.getInnerCss(),
+      this.getJs(),
+      this.getAdditionPageFooter ? this.getAdditionPageFooter() : ''
+    );
   };
 };
 
-function generatePageFullHtml(html, css, js) {
+function generatePageFullHtml(
+  pageIconUrl,
+  pageTitle,
+  pageSummary,
+  pageImageUrl,
+  additionPageHeader,
+  html,
+  css,
+  js,
+  additionPageFooter,
+) {
   return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Exported Page</title>
+      <title>${pageTitle || 'Preview'}</title>
+      ${pageIconUrl ? `<link rel="icon" type="image/x-icon" href="${pageIconUrl}">` : ''}
+      ${pageSummary ? `<meta property="og:description" content="${pageSummary}" />` : ''}
+      ${pageImageUrl ? `<meta property="og:image" content="${pageImageUrl}">` : ''}
+      ${additionPageHeader || ''}
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css">
       <style>${css}</style>
     </head>
     <body>
@@ -52,6 +73,7 @@ function generatePageFullHtml(html, css, js) {
       <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script>
       <script>${js}</script>
+      ${additionPageFooter || ''}
     </body>
     </html>
   `.trim();
