@@ -245,7 +245,12 @@ export default function(editor) {
         const comps = this.components();
         const tChild =  comps.length === 1 && comps.models[0];
         const chCnt = (tChild && tChild.is('textnode') && tChild.get('content')) || '';
-        const text = chCnt || this.get('text');
+        let text;
+        if (tChild) {
+          text = chCnt;
+        } else {
+          text = this.get('text');
+        }
         this.set({ text });
         this.on('change:text', this.__onTextChange);
         (text !== chCnt) && this.__onTextChange();

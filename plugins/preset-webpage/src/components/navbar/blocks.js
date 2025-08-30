@@ -10,86 +10,98 @@ export default (editor, opts = {}) => {
   const navbarPfx = opts.navbarClsPfx || 'navbar';
   const style = opts.defaultStyle ? `
   <style>
-    .${navbarPfx}-items-c {
-      display: inline-block;
-      float: right;
+    .navbar-toggler {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .navbar-toggler:focus {
+      box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
+    }
+    
+    .navbar-toggler-icon {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
     }
 
-    .${navbarPfx} {
-      background-color: #222;
-      color: #ddd;
-      min-height: 50px;
-      width: 100%;
-    }
-
-    .${navbarPfx}-container {
-      max-width: 950px;
-      margin: 0 auto;
-      width: 95%;
-    }
-
-    .${navbarPfx}-container::after {
-      content: "";
-      clear: both;
-      display: block;
-    }
-
-    .${navbarPfx}-brand {
-      vertical-align: top;
-      display: inline-block;
-      padding: 5px;
-      min-height: 50px;
-      min-width: 50px;
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .${navbarPfx}-menu {
-      padding: 10px 0;
-      display: block;
-      float: right;
-      margin: 0;
-    }
-
-    .${navbarPfx}-menu-link {
-      margin: 0;
-      color: inherit;
-      text-decoration: none;
-      display: inline-block;
-      padding: 10px 15px;
-    }
-
-    .${navbarPfx}-burger {
-      margin: 10px 0;
-      width: 45px;
-      padding: 5px 10px;
+    .btn-close-mobile-nav {
       display: none;
-      float: right;
-      cursor: pointer;
     }
-
-    .${navbarPfx}-burger-line {
-      padding: 1px;
-      background-color: white;
-      margin: 5px 0;
-    }
-
-    @media (max-width: 768px) {
-      .${navbarPfx}-burger {
-        display: block;
+    
+    @media (max-width: 991.98px) {
+      .navbar-collapse {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 300px;
+        height: 100vh;
+        background-color: #343a40;
+        transition: left 0.3s ease-in-out;
+        z-index: 1050;
+        padding: 2rem 1rem;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
       }
-
-      .${navbarPfx}-items-c {
-        display: none;
+      
+      .navbar-collapse.show {
+        left: 0;
+      }
+      
+      .navbar-nav {
+        flex-direction: column;
         width: 100%;
       }
-
-      .${navbarPfx}-menu {
-        width: 100%;
+      
+      .nav-item {
+        margin: 0.5rem 0;
       }
-
-      .${navbarPfx}-menu-link {
-        display: block;
+      
+      .nav-link {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      
+      .mobile-menu-header {
+        display: flex;
+        justify-content: flex-end;
+        padding: 1rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 1rem;
+      }
+      
+      .btn-close-mobile-nav {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: white;
+        cursor: pointer;
+        padding: 0.5rem;
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+      }
+      
+      .btn-close-mobile-nav:hover {
+        opacity: 1;
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      
+      .btn-close-mobile-nav span {
+        font-size: 1.5rem;
+        line-height: 1;
+      }
+      
+      .navbar-collapse.show::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0,0,0,0.5);
+        z-index: -1;
       }
     }
   </style>
@@ -107,35 +119,49 @@ export default (editor, opts = {}) => {
         <div class="gjs-block-label">${editor.I18n.t('navbar')}</div>`,
       category: editor.I18n.t('extra'),
       content: `
-        <div class="${navbarPfx}"
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark"
           data-gjs-droppable="false"
           data-gjs-custom-name="${editor.I18n.t('navbar')}"
           data-gjs="${navbarRef}">
-          <div class="${navbarPfx}-container"
+          <div class="container"
             data-gjs-droppable="false"
             data-gjs-draggable="false"
             data-gjs-copyable="false"
             data-gjs-highlightable="false"
             data-gjs-custom-name="${editor.I18n.t('navbar_container')}">
 
-            <a href="/" class="${navbarPfx}-brand" data-gjs-droppable="true"></a>
+            <a class="navbar-brand" href="/" data-gjs-droppable="true">
+              <img src="https://via.placeholder.com/150x50/ffffff/000000?text=Brand" alt="Brand" height="30"
+                data-gjs-custom-name="${editor.I18n.t('logo')}">
+            </a>
 
-            <div class="${navbarPfx}-burger" data-gjs-type="burger-menu" data-gjs-custom-name="${editor.I18n.t('burger_menu')}">
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-              <div class="${navbarPfx}-burger-line" data-gjs-custom-name="${editor.I18n.t('burger_line')}" data-gjs-droppable="false" data-gjs-draggable="false"></div>
-            </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation"
+              data-gjs-type="burger-menu" 
+              data-gjs-custom-name="${editor.I18n.t('burger_menu')}">
+              <span class="navbar-toggler-icon"></span>
+            </button>
 
-            <div class="${navbarPfx}-items-c" data-gjs="${navbarItemsRef}">
-              <nav class="${navbarPfx}-menu" data-gjs="${menuRef}" data-gjs-custom-name="${editor.I18n.t('navbar_menu')}">
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('home')}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('about')}</a>
-                <a href="#" class="${navbarPfx}-menu-link" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('contact')}</a>
-              </nav>
+            <div class="collapse navbar-collapse" id="navbarNav" data-gjs="${navbarItemsRef}">
+              <div class="mobile-menu-header">
+                <button class="btn-close-mobile-nav" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Close navigation">
+                  <span>&times;</span>
+                </button>
+              </div>
+              <ul class="navbar-nav" data-gjs="${menuRef}" data-gjs-custom-name="${editor.I18n.t('navbar_menu')}">
+                <li class="nav-item">
+                  <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('home')}</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('about')}</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('contact')}</a>
+                </li>
+              </ul>
             </div>
 
           </div>
-        </div>
+        </nav>
         ${style}
       `,
     });
