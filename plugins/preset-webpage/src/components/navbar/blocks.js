@@ -142,20 +142,26 @@ export default (editor, opts = {}) => {
               <span class="navbar-toggler-icon"></span>
             </button>
 
-            <div class="collapse navbar-collapse" id="navbarNav" data-gjs="${navbarItemsRef}">
-              <div class="mobile-menu-header">
-                <button class="btn-close-mobile-nav" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Close navigation">
-                  <span>&times;</span>
+            <div class="collapse navbar-collapse" id="navbarNav" data-gjs="${navbarItemsRef}"
+              data-gjs-custom-name="${editor.I18n.t('links_container')}">
+              <div class="mobile-menu-header"
+                data-gjs-custom-name="${editor.I18n.t('menu_on_mobile')}">
+                <button class="btn-close-mobile-nav" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Close navigation"
+                  data-gjs-custom-name="${editor.I18n.t('close_button')}">
+                  <span data-gjs-custom-name="${editor.I18n.t('close_icon')}">&times;</span>
                 </button>
               </div>
               <ul class="navbar-nav" data-gjs="${menuRef}" data-gjs-custom-name="${editor.I18n.t('navbar_menu')}">
-                <li class="nav-item">
+                <li class="nav-item"
+                  data-gjs-custom-name="${editor.I18n.t('menu_item')}">
                   <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('home')}</a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item"
+                  data-gjs-custom-name="${editor.I18n.t('menu_item')}">
                   <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('about')}</a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item"
+                  data-gjs-custom-name="${editor.I18n.t('menu_item')}">
                   <a class="nav-link" href="#" data-gjs-custom-name="${editor.I18n.t('menu_link')}" data-gjs-draggable="[data-gjs=${menuRef}]">${editor.I18n.t('contact')}</a>
                 </li>
               </ul>
