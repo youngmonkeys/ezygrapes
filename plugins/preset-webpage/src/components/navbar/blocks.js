@@ -131,7 +131,8 @@ export default (editor, opts = {}) => {
             data-gjs-custom-name="${editor.I18n.t('navbar_container')}">
 
             <a class="navbar-brand" href="/" data-gjs-droppable="true">
-              <img src="https://via.placeholder.com/150x50/ffffff/000000?text=Brand" alt="Brand" height="30"
+              <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWBAMAAADOL2zRAAAAG1BMVEX///8ACgC/wb+fo58fKB/f4N9fZV9/hH8/Rz/0Vc1VAAAACXBIWXMAAA7EAAAOxAGVKw4bAAACdUlEQVRoge2Xu3PTQBDGD8kiKdlEJCot80hLyPAoucxgUprEJikRkJgytiGmRBCG/NnoXjrpdN5BsQqY2a+wtfp0P61WtyeJMRKJRCKRSCQSiUQikUgk0n+q4KA7Vg9GxCIWsbplnVzdTJ/ZMNDhxG+jrJcg9MOEG1yEb1gIfZ+Nss4Aji6uAX7prDgMl1c5HGqWY6OsgMfiAk4hVvtTlcIXWEiWa6OsMbzX6b0WfxHfVfuzRLIcG2fleizLdsTvJlyq8C5IlmOjrBC+l4YYmybG4SJ2bZRlw0AOy7aMk4rBro2yUpt6LjD8ngnvCJZroyybB9sXpbFn3xQs10ZZNg/2VpRK3zYmit9v2hgrqlShB7W8BKthY6zA5lFc1Kh+jaOmjbFCM510Iiyv1N5j/z3rCWOzbRPu73hsjLVROUBuj03fRXzLY7dihWZBkI3YitUsyCyWQ0KeeO12LIg/Pjp+zuG8Latx0wO4kOso/PTaGCuCV+W2mASsl7CTzzwezv02xmo0SVrv4DY9xLJyPrHZbpPl2ijLrn2M3xfxNsNslGWXS7WE9uqzyLVRVlhWd6yeOxBPn04mq2yUZZ8J+inxUE2Jo69+G2WNddOcmWvYu1a0Q79dZ02XRgsmehg+FH+PISnPER0PHnwCNU09dpVlJfMvHoTxTfEOcVk/7p1yV9l+VnHOQvG5e2Cqi73CXqHgxXLRb+wtJ4HfbqdK/6ytvDnRb62sQ1aXeXVYr7Cypq4rXzO3UlSuOOXL5u1ZMNcbM18zt2TBcD5h0V4OnvfTljrluleT/tosFnyTtN/dfDVFg4NBd99fJBKJRCKRSKR/SH8AbfyCR3FmyV0AAAAASUVORK5CYII="
+                alt="Brand" height="30"
                 data-gjs-custom-name="${editor.I18n.t('logo')}">
             </a>
 

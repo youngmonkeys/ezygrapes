@@ -15,6 +15,8 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('full_width_container')}</div>`,
       category: categoryName,
       content: {
+        type: 'div',
+        name: editor.I18n.t('full_width_container'),
         classes: ['container-fluid'],
         style: { 
           'min-height': '120px',
@@ -32,6 +34,8 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('container')}</div>`,
       category: categoryName,
       content: {
+        type: 'div',
+        name: editor.I18n.t('container'),
         classes: ['container'],
         style: { 
           'min-height': '120px',
@@ -49,9 +53,12 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('1_column')}</div>`,
       category: categoryName,
       content: `
-        <div class="row">
-          <div class="col-md-12">
-            <div style="height: 120px;">Input input something here</div>
+        <div class="row"
+          data-gjs-custom-name="${editor.I18n.t('row')}">
+          <div class="col-md-12"
+            data-gjs-custom-name="col-md-12">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">Input input something here</div>
           </div>
         </div>
       `
