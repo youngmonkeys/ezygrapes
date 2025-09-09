@@ -54,11 +54,13 @@ export default function(editor, opts = {}) {
       category: categoryName,
       content: `
         <div class="row"
-          data-gjs-custom-name="${editor.I18n.t('row')}">
+          data-gjs-custom-name="${editor.I18n.t('row')} (${editor.I18n.t('1_column')})">
           <div class="col-md-12"
-            data-gjs-custom-name="col-md-12">
+            data-gjs-custom-name="${editor.I18n.t('column_1')}">
             <div style="height: 120px;"
-              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">Input input something here</div>
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
           </div>
         </div>
       `
@@ -73,12 +75,21 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('2_columns')}</div>`,
       category: categoryName,
       content: `
-        <div class="row">
-          <div class="col-md-6">
-            <div style="height: 120px;">Input input something here</div>
+        <div class="row"
+          data-gjs-custom-name="${editor.I18n.t('row')} (${editor.I18n.t('2_columns')})">
+          <div class="col-md-6"
+            data-gjs-custom-name="${editor.I18n.t('column_1')}">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+              Input input something here
+            </div>
           </div>
-          <div class="col-md-6">
-            <div style="height: 120px;">Input input something here</div>
+          <div class="col-md-6"
+            data-gjs-custom-name="${editor.I18n.t('column_2')}">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+              Input input something here
+            </div>
           </div>
         </div>
       `
@@ -93,15 +104,28 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('3_columns')}</div>`,
       category: categoryName,
       content: `
-        <div class="row">
-          <div class="col-md-4">
-            <div style="height: 120px;">Input input something here</div>
+        <div class="row"
+          data-gjs-custom-name="${editor.I18n.t('row')} (${editor.I18n.t('3_columns')})">
+          <div class="col-md-4"
+            data-gjs-custom-name="${editor.I18n.t('column_1')}">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+              Input input something here
+            </div>
           </div>
-          <div class="col-md-4">
-            <div style="height: 120px;">Input input something here</div>
+          <div class="col-md-4"
+            data-gjs-custom-name="${editor.I18n.t('column_2')}">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+              Input input something here
+            </div>
           </div>
-          <div class="col-md-4">
-            <div style="height: 120px;">Input input something here</div>
+          <div class="col-md-4"
+            data-gjs-custom-name="${editor.I18n.t('column_3')}">
+            <div style="height: 120px;"
+              data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+              Input input something here
+            </div>
           </div>
         </div>
       `
@@ -119,15 +143,35 @@ export default function(editor, opts = {}) {
           <div class="gjs-block-label">${editor.I18n.t('4_columns')}</div>`,
         category: categoryName,
         content: `
-          <div class="row">
-            <div class="col-lg-3">
-              <div style="height: 120px;">Input input something here</div>
+          <div class="row"
+            data-gjs-custom-name="${editor.I18n.t('row')} (${editor.I18n.t('4_columns')})">
+            <div class="col-lg-3"
+              data-gjs-custom-name="${editor.I18n.t('column_1')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
             </div>
-            <div class="col-lg-3">
-              <div style="height: 120px;">Input input something here</div>
+            <div class="col-lg-3"
+              data-gjs-custom-name="${editor.I18n.t('column_2')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
             </div>
-            <div class="col-lg-3">
-              <div style="height: 120px;">Input input something here</div>
+            <div class="col-lg-3"
+              data-gjs-custom-name="${editor.I18n.t('column_3')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
+            </div>
+            <div class="col-lg-3"
+              data-gjs-custom-name="${editor.I18n.t('column_4')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
             </div>
           </div>
         `
@@ -142,12 +186,21 @@ export default function(editor, opts = {}) {
         <div class="gjs-block-label">${editor.I18n.t('2_columns_4_8')}</div>`,
       category: categoryName,
       content: `
-          <div class="row">
-            <div class="col-md-4">
-              <div style="height: 120px;">Input input something here</div>
+          <div class="row"
+            data-gjs-custom-name="${editor.I18n.t('row')} (${editor.I18n.t('2_columns_4_8')})">
+            <div class="col-md-4"
+              data-gjs-custom-name="${editor.I18n.t('column_1')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
             </div>
-            <div class="col-lg-8">
-              <div style="height: 120px;">Input input something here</div>
+            <div class="col-lg-8"
+              data-gjs-custom-name="${editor.I18n.t('column_2')}">
+              <div style="height: 120px;"
+                data-gjs-custom-name="${editor.I18n.t('placeholder_text')}">
+                Input input something here
+              </div>
             </div>
           </div>
         `
