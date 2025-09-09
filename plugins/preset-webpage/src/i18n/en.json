@@ -84,7 +84,9 @@
   "text_section": "Text Section",
   "textarea": "Textarea",
   "type": "Type",
+  "unit": "Unit",
   "unordered_list": "Unordered List",
   "upper_roman": "Upper Roman",
+  "value": "Value",
   "video": "Video"
 }

@@ -93,24 +93,37 @@ export default function(editor, opts = {}) {
           comps.reset();
           comps.add(`
             <span data-js="countdown" class="${pfx}-container">
-              <div class="${pfx}-block">
-                <div data-js="countdown-day" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${editor.I18n.t('days')}</div>
+              <div class="${pfx}-block"
+                data-gjs-custom-name="${editor.I18n.t('days')}">
+                <div data-js="countdown-day" class="${pfx}-digit"
+                  data-gjs-custom-name="${editor.I18n.t('value')}"></div>
+                <div class="${pfx}-label"
+                  data-gjs-custom-name="${editor.I18n.t('unit')}">${editor.I18n.t('days')}</div>
               </div>
-              <div class="${pfx}-block">
-                <div data-js="countdown-hour" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${editor.I18n.t('hours')}</div>
+              <div class="${pfx}-block"
+                data-gjs-custom-name="${editor.I18n.t('hours')}">
+                <div data-js="countdown-hour" class="${pfx}-digit"
+                  data-gjs-custom-name="${editor.I18n.t('value')}"></div>
+                <div class="${pfx}-label"
+                  data-gjs-custom-name="${editor.I18n.t('unit')}">${editor.I18n.t('hours')}</div>
               </div>
-              <div class="${pfx}-block">
-                <div data-js="countdown-minute" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${editor.I18n.t('minutes')}</div>
+              <div class="${pfx}-block"
+                data-gjs-custom-name="${editor.I18n.t('minutes')}">
+                <div data-js="countdown-minute" class="${pfx}-digit"
+                  data-gjs-custom-name="${editor.I18n.t('value')}"></div>
+                <div class="${pfx}-label"
+                  data-gjs-custom-name="${editor.I18n.t('unit')}">${editor.I18n.t('minutes')}</div>
               </div>
-              <div class="${pfx}-block">
-                <div data-js="countdown-second" class="${pfx}-digit"></div>
-                <div class="${pfx}-label">${editor.I18n.t('seconds')}</div>
+              <div class="${pfx}-block"
+                data-gjs-custom-name="${editor.I18n.t('seconds')}">
+                <div data-js="countdown-second" class="${pfx}-digit"
+                  data-gjs-custom-name="${editor.I18n.t('value')}"></div>
+                <div class="${pfx}-label"
+                  data-gjs-custom-name="${editor.I18n.t('unit')}">${editor.I18n.t('seconds')}</div>
               </div>
             </span>
-            <span data-js="countdown-endtext" class="${pfx}-endtext"></span>
+            <span data-js="countdown-endtext" class="${pfx}-endtext"
+              data-gjs-custom-name="${editor.I18n.t('end_text')}"></span>
           `);
         }
       }
