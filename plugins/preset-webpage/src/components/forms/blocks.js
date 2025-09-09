@@ -23,6 +23,7 @@ export default function (editor, opts = {}) {
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 5.5c0-.3-.5-.5-1.3-.5H3.4c-.8 0-1.3.2-1.3.5v3c0 .3.5.5 1.3.5h17.4c.8 0 1.3-.2 1.3-.5v-3zM21 8H3V6h18v2zM22 10.5c0-.3-.5-.5-1.3-.5H3.4c-.8 0-1.3.2-1.3.5v3c0 .3.5.5 1.3.5h17.4c.8 0 1.3-.2 1.3-.5v-3zM21 13H3v-2h18v2z"/><rect width="10" height="3" x="2" y="15" rx=".5"/></svg>',
     content: {
       type: typeForm,
+      name: editor.I18n.t('form'),
       attributes: {
         method: 'post',
         action: '/register',
@@ -48,44 +49,109 @@ export default function (editor, opts = {}) {
       ],
       components: [
         {
+          name: editor.I18n.t('block'),
           components: [
-            { type: typeLabel, components: editor.I18n.t('name'), attributes: { class: 'form-label' } },
-            { type: typeInput, attributes: { class: 'form-control' } },
-          ],
-          attributes: { class: 'mb-3' }
-        }, {
-          components: [
-            { type: typeLabel, components: editor.I18n.t('email'), attributes: { class: 'form-label' } },
-            { type: typeInput, attributes: { type: 'email', class: 'form-control' } },
-          ],
-          attributes: { class: 'mb-3' }
-        }, {
-          components: [
-            { type: typeLabel, components: editor.I18n.t('gender'), attributes: { class: 'form-label d-block' } },
             {
+              type: typeLabel,
+              name: editor.I18n.t('label'),
+              components: editor.I18n.t('name'),
+              attributes: { class: 'form-label' }
+            },
+            {
+              type: typeInput,
+              name: editor.I18n.t('form_input'),
+              attributes: { class: 'form-control' }
+            },
+          ],
+          attributes: { class: 'mb-3' }
+        }, {
+          name: editor.I18n.t('block'),
+          components: [
+            {
+              type: typeLabel,
+              name: editor.I18n.t('label'),
+              components: editor.I18n.t('email'),
+              attributes: { class: 'form-label' }
+            },
+            {
+              type: typeInput,
+              name: editor.I18n.t('form_input'),
+              attributes: { type: 'email', class: 'form-control' }
+            },
+          ],
+          attributes: { class: 'mb-3' }
+        }, {
+          name: editor.I18n.t('block'),
+          components: [
+            {
+              type: typeLabel,
+              name: editor.I18n.t('label'),
+              components: editor.I18n.t('gender'),
+              attributes: { class: 'form-label d-block' }
+            },
+            {
+              name: editor.I18n.t('block'),
               components: [
-                { type: typeCheckbox, attributes: { value: 'M', class: 'form-check-input', id: 'gender-m' } },
-                { type: typeLabel, components: 'M', attributes: { class: 'form-check-label', for: 'gender-m' } },
+                {
+                  type: typeCheckbox,
+                  name: editor.I18n.t('checkbox'),
+                  attributes: { value: 'M', class: 'form-check-input', id: 'gender-m' }
+                },
+                {
+                  type: typeLabel,
+                  name: editor.I18n.t('label'),
+                  components: 'M',
+                  attributes: { class: 'form-check-label', for: 'gender-m' }
+                },
               ],
               attributes: { class: 'form-check' }
             },
             {
+              name: editor.I18n.t('block'),
               components: [
-                { type: typeCheckbox, attributes: { value: 'F', class: 'form-check-input', id: 'gender-f' } },
-                { type: typeLabel, components: 'F', attributes: { class: 'form-check-label', for: 'gender-f' } },
+                {
+                  type: typeCheckbox,
+                  name: editor.I18n.t('checkbox'),
+                  attributes: { value: 'F', class: 'form-check-input', id: 'gender-f' }
+                },
+                {
+                  type: typeLabel,
+                  name: editor.I18n.t('label'),
+                  components: 'F',
+                  attributes: { class: 'form-check-label', for: 'gender-f' }
+                },
               ],
               attributes: { class: 'form-check' }
             }
           ],
           attributes: { class: 'mb-3' }
         }, {
+          name: editor.I18n.t('block'),
           components: [
-            { type: typeLabel, components: editor.I18n.t('message'), attributes: { class: 'form-label' } },
-            { type: typeTextarea, attributes: { class: 'form-control', rows: '4' } },
+            {
+              type: typeLabel,
+              name: editor.I18n.t('label'),
+              components: editor.I18n.t('message'),
+              attributes: { class: 'form-label' }
+            },
+            {
+              type: typeTextarea,
+              name: editor.I18n.t('textarea'),
+              attributes: { class: 'form-control', rows: '4' }
+            },
           ],
           attributes: { class: 'mb-3' }
         }, {
-          components: [{ type: typeButton, attributes: { type: 'submit', class: 'form-control btn btn-primary' }, components: 'Submit' }]
+          name: editor.I18n.t('block'),
+          components: [
+            {
+              type: typeButton,
+              name: editor.I18n.t('button'),
+              attributes: { type: 'submit',
+                class: 'form-control btn btn-primary' },
+                components: 'Submit'
+              }
+          ]
         },
       ]
     },
@@ -94,31 +160,51 @@ export default function (editor, opts = {}) {
   addBlock(typeInput, {
     label: editor.I18n.t('form_input'),
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 9c0-.6-.5-1-1.3-1H3.4C2.5 8 2 8.4 2 9v6c0 .6.5 1 1.3 1h17.4c.8 0 1.3-.4 1.3-1V9zm-1 6H3V9h18v6z"/><path d="M4 10h1v4H4z"/></svg>',
-    content: { type: typeInput, attributes: { class: 'form-control' } }
+    content: {
+      type: typeInput,
+      name: editor.I18n.t('form_input'),
+      attributes: { class: 'form-control' }
+    }
   });
 
   addBlock(typeTextarea, {
     label: editor.I18n.t('textarea'),
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 7.5c0-.9-.5-1.5-1.3-1.5H3.4C2.5 6 2 6.6 2 7.5v9c0 .9.5 1.5 1.3 1.5h17.4c.8 0 1.3-.6 1.3-1.5v-9zM21 17H3V7h18v10z"/><path d="M4 8h1v4H4zM19 7h1v10h-1zM20 8h1v1h-1zM20 15h1v1h-1z"/></svg>',
-    content: { type: typeTextarea, attributes: { class: 'form-control', rows: 3 } }
+    content: {
+      type: typeTextarea,
+      name: editor.I18n.t('textarea'),
+      attributes: { class: 'form-control', rows: 3 }
+    }
   });
 
   addBlock(typeSelect, {
     label: editor.I18n.t('form_select'),
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 9c0-.6-.5-1-1.3-1H3.4C2.5 8 2 8.4 2 9v6c0 .6.5 1 1.3 1h17.4c.8 0 1.3-.4 1.3-1V9zm-1 6H3V9h18v6z"/><path d="M18.5 13l1.5-2h-3zM4 11.5h11v1H4z"/></svg>',
-    content: { type: typeSelect, attributes: { class: 'form-select' } }
+    content: {
+      type: typeSelect,
+      name: editor.I18n.t('form_select'),
+      attributes: { class: 'form-select' }
+    }
   });
 
   addBlock(typeButton, {
     label: editor.I18n.t('button'),
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 9c0-.6-.5-1-1.3-1H3.4C2.5 8 2 8.4 2 9v6c0 .6.5 1 1.3 1h17.4c.8 0 1.3-.4 1.3-1V9zm-1 6H3V9h18v6z"/><path d="M4 11.5h16v1H4z"/></svg>',
-    content: { type: typeButton, attributes: { class: 'btn btn-primary', type: 'submit' } }
+    content: {
+      type: typeButton,
+      name: editor.I18n.t('button'),
+      attributes: { class: 'btn btn-primary', type: 'submit' }
+    }
   });
 
   addBlock(typeLabel, {
     label: editor.I18n.t('label'),
     media: '<svg class="gjs-block-svg" viewBox="0 0 24 24"><path d="M22 11.9c0-.6-.5-.9-1.3-.9H3.4c-.8 0-1.3.3-1.3.9V17c0 .5.5.9 1.3.9h17.4c.8 0 1.3-.4 1.3-.9V12zM21 17H3v-5h18v5z"/><rect width="14" height="5" x="2" y="5" rx=".5"/><path d="M4 13h1v3H4z"/></svg>',
-    content: { type: typeLabel, attributes: { class: 'form-label' } }
+    content: {
+      type: typeLabel,
+      name: editor.I18n.t('label'),
+      attributes: { class: 'form-label' }
+    }
   });
 
   addBlock(typeCheckbox, {
@@ -126,10 +212,20 @@ export default function (editor, opts = {}) {
     media: '<svg class="gjs-block-svg-checkbok" viewBox="0 0 24 24"><path d="M10 17l-5-5 1.41-1.42L10 14.17l7.59-7.59L19 8m0-5H5c-1.11 0-2 .89-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5a2 2 0 0 0-2-2z"></path></svg>',
     content: {
       tagName: 'div',
+      name: editor.I18n.t('block'),
       attributes: { class: 'form-check' },
       components: [
-        { type: typeCheckbox, attributes: { class: 'form-check-input' } },
-        { type: typeLabel, attributes: { class: 'form-check-label' }, components: 'Checkbox' }
+        {
+          type: typeCheckbox,
+          name: editor.I18n.t('checkbox'),
+          attributes: { class: 'form-check-input' }
+        },
+        {
+          type: typeLabel,
+          name: editor.I18n.t('label'),
+          attributes: { class: 'form-check-label' },
+          components: 'Checkbox'
+        }
       ]
     }
   });
@@ -139,10 +235,20 @@ export default function (editor, opts = {}) {
     media: '<svg class="gjs-block-svg-checkbok" viewBox="0 0 24 24"><path d="M12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8m0-18C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 5c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"></path></svg>',
     content: {
       tagName: 'div',
+      name: editor.I18n.t('block'),
       attributes: { class: 'form-check' },
       components: [
-        { type: typeRadio, attributes: { class: 'form-check-input', name: 'radio-group' } },
-        { type: typeLabel, attributes: { class: 'form-check-label' }, components: 'Radio' }
+        {
+          type: typeRadio,
+          name: editor.I18n.t('form_radio'),
+          attributes: { class: 'form-check-input', name: 'radio-group' }
+        },
+        {
+          type: typeLabel,
+          name: editor.I18n.t('label'),
+          attributes: { class: 'form-check-label' },
+          components: 'Radio'
+        }
       ]
     }
   });
