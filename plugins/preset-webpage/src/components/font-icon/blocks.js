@@ -9,7 +9,8 @@ export default function (editor, opts = {}) {
       attributes: {class: 'fa-solid fa-icons', style: 'font-size: 1.5rem; font-weight: 900'},
       content: () => {
           return `
-          <i class="${cssClass} ${generateRandomClass()}"></i>
+          <i class="${cssClass} ${generateRandomClass()}"
+             data-gjs-custom-name="${editor.I18n.t('icon')}"></i>
         `
       },
     });
@@ -17,6 +18,6 @@ export default function (editor, opts = {}) {
 
   function generateRandomClass() {
     const randomString = Math.random().toString(36).slice(2, 8);
-    return `random-class-${randomString}`;
+    return `icon-class-${randomString}`;
   }
 }
