@@ -139,7 +139,7 @@ export default (editor, opts = {}) => {
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation"
               data-gjs-type="burger-menu" 
               data-gjs-custom-name="${editor.I18n.t('burger_menu')}">
-              <span class="navbar-toggler-icon"></span>
+              <span class="navbar-toggler-icon" data-gjs-custom-name="${editor.I18n.t('icon')}"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav" data-gjs="${navbarItemsRef}"
