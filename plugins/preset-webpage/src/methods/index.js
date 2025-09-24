@@ -1,14 +1,9 @@
 export default (editor) => {
   editor.getInnerHtml = function () {
-    let html = editor.getHtml();
-    const startIdx = html.indexOf('<body>');
-    const endIdx = html.indexOf('</body>');
-
-    if (startIdx >= 0 && endIdx > startIdx) {
-      html = html.substring(startIdx + 6, endIdx);
-    }
-
-    return html;
+    const html = editor.getHtml();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body ? doc.body.innerHTML : html;
   };
 
   editor.getInnerCss = function () {
@@ -17,10 +12,9 @@ export default (editor) => {
 
   editor.getMergedCssHtml = function () {
     const css = this.getInnerCss();
-    const html = this.getHtml();
+    const html = this.getInnerHtml();
     const js = this.getJs();
-
-    return `<style>${css}</style>${html}<script>${js}</script>`;
+    return `<style>${css}</style><body>${html}</body><script>${js}</script>`;
   };
 
   editor.generatePageFullHtml = function () {
