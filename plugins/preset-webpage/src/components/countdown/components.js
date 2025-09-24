@@ -9,7 +9,14 @@ export default function(editor, opts = {}) {
   domc.addType(countdownType, {
 
     isComponent: el => {
-      return el.classList?.contains(`${pfx}-container`);
+      if (el.classList?.contains(`${pfx}`)) {
+        return {
+          type: countdownType,
+          endTime: el.getAttribute('data-end-time') || undefined,
+          endText: el.getAttribute('data-end-text') || undefined,
+        };
+      }
+      return false;
     },
 
     model: {
@@ -63,22 +70,44 @@ export default function(editor, opts = {}) {
             /* If the count down is finished, write some text */
             if (distance < 0) {
               clearInterval(interval);
-              endTextEl.innerHTML = endTxt;
-              countdownEl.style.display = 'none';
-              endTextEl.style.display = '';
+              if (endTextEl) {
+                endTextEl.innerHTML = endTxt;
+                if (endTextEl.style) {
+                  endTextEl.style.display = '';
+                }
+              }
+              if (countdownEl && countdownEl.style) {
+                countdownEl.style.display = 'none';
+              }
             }
           };
 
           if (countDownDate) {
             var interval = setInterval(moveTimer, 1000);
             this.gjs_countdown_interval = interval;
-            endTextEl.style.display = 'none';
-            countdownEl.style.display = '';
+            if (endTextEl && endTextEl.style) {
+              endTextEl.style.display = 'none';
+            }
+            if (countdownEl && countdownEl.style) {
+              countdownEl.style.display = '';
+            }
             moveTimer();
           } else {
             setTimer(0, 0, 0, 0);
           }
         }
+      },
+      init() {
+        const syncAttrs = () => {
+          const endTime = this.get('endTime');
+          const endText = this.get('endText');
+          this.addAttributes({
+            'data-end-time': endTime || '',
+            'data-end-text': endText || ''
+          });
+        };
+        this.on('change:endTime change:endText', syncAttrs);
+        syncAttrs();
       },
       ...opts,
     },
