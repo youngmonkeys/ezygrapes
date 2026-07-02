@@ -48,10 +48,11 @@ export default (editor) => {
               sib.style.transition = 'transform 0.3s ease, z-index 0.3s ease';
 
               const distance = Math.abs(idx - index);
+              const direction = idx < index ? -1 : idx > index ? 1 : 0;
               const transform = transformMap[distance];
 
               if (transform) {
-                sib.style.transform = `translate3d(${transform.translateX}px, 0px, 0px) scale3d(${transform.scale}, ${transform.scale}, ${transform.scale})`;
+                sib.style.transform = `translate3d(${transform.translateX * direction}px, 0px, 0px) scale3d(${transform.scale}, ${transform.scale}, ${transform.scale})`;
                 sib.style.zIndex = transform.zIndex;
               } else {
                 sib.style.transform = '';
