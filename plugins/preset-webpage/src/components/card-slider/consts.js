@@ -6,4 +6,6 @@ export default {
   label: 'card-slider',
   clsPfx: PREFIX,
   category: 'extra',
+  minSlides: 3,
+  maxSlides: 5,
 };

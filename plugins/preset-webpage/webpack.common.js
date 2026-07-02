@@ -14,7 +14,11 @@ module.exports = {
   output: {
     filename: `${name}.min.js`,
     path: path.resolve(__dirname, 'dist'),
-    clean: true,
+    // Keep CSS output (built separately via `build:css`/sass) from being wiped
+    // by webpack's own clean step.
+    clean: {
+      keep: /\.css(\.map)?$/,
+    },
   },
   module: {
     rules: [

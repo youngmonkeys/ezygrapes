@@ -1,7 +1,73 @@
-export default (editor) => {
+import C from './consts';
+import { buildSliders, desktopSlideHtml, mobileSlideHtml } from './slide-template';
+
+export default (editor, opts = {}) => {
+  const minSlides = opts.minSlides || C.minSlides;
   const domc = editor.DomComponents;
   const defaultType = domc.getType('default');
   const defaultView = defaultType.view;
+
+  domc.addType('card-slider', {
+    model: {
+      defaults: {
+        name: 'Card Slider',
+        traits: [
+          {
+            type: 'number',
+            label: 'Number of slides',
+            name: 'slidesCount',
+            min: minSlides,
+            changeProp: 1,
+          },
+        ],
+      },
+      getDesktopWrapper() {
+        return this.findType((c) => c.getClasses().includes('slider-wrapper-desktop'), { max: 1 })[0];
+      },
+      getMobileWrapper() {
+        return this.findType((c) => c.getClasses().includes('swiper-wrapper'), { max: 1 })[0];
+      },
+      init() {
+        const desktopWrapper = this.getDesktopWrapper();
+        const currentCount = desktopWrapper
+          ? desktopWrapper.components().filter((c) => c.is('card-slider-slide')).length
+          : minSlides;
+
+        if (this.get('slidesCount') === undefined) {
+          this.set('slidesCount', currentCount, { silent: true });
+        }
+
+        this.on('change:slidesCount', () => this.resizeSlides());
+      },
+      resizeSlides() {
+        const desktopWrapper = this.getDesktopWrapper();
+        const mobileWrapper = this.getMobileWrapper();
+        if (!desktopWrapper || !mobileWrapper) return;
+
+        const desktopSlides = desktopWrapper.components().filter((c) => c.is('card-slider-slide'));
+        const currentCount = desktopSlides.length;
+
+        let count = parseInt(this.get('slidesCount'), 10);
+        if (isNaN(count)) return;
+        count = Math.max(minSlides, count);
+        if (count !== this.get('slidesCount')) {
+          this.set('slidesCount', count, { silent: true });
+        }
+
+        if (count > currentCount) {
+          buildSliders(count - currentCount, currentCount + 1).forEach((slider) => {
+            desktopWrapper.append(desktopSlideHtml(slider));
+            mobileWrapper.append(mobileSlideHtml(slider));
+          });
+        } else if (count < currentCount) {
+          const toRemove = currentCount - count;
+          desktopSlides.slice(-toRemove).forEach((s) => s.remove());
+          const mobileSlides = mobileWrapper.components().filter((c) => c.getClasses().includes('swiper-slide'));
+          mobileSlides.slice(-toRemove).forEach((s) => s.remove());
+        }
+      },
+    },
+  });
 
   domc.addType('card-slider-slide', {
     model: {
@@ -35,13 +101,13 @@ export default (editor) => {
         script: function () {
           const el = this;
 
-          const transformMap = [
-            { scale: 1, translateX: 0, zIndex: 10 },
-            { scale: 0.9, translateX: 9.25, zIndex: 9 },
-            { scale: 0.8, translateX: 18.5, zIndex: 8 },
-            { scale: 0.7, translateX: 27.75, zIndex: 7 },
-            { scale: 0.6, translateX: 37, zIndex: 6 },
-          ];
+          function getTransform(distance) {
+            return {
+              scale: Math.max(0.5, 1 - distance * 0.1),
+              translateX: distance * 9.25,
+              zIndex: Math.max(1, 10 - distance),
+            };
+          }
 
           function applyHoverEffect(siblings, index) {
             siblings.forEach((sib, idx) => {
@@ -49,15 +115,10 @@ export default (editor) => {
 
               const distance = Math.abs(idx - index);
               const direction = idx < index ? -1 : idx > index ? 1 : 0;
-              const transform = transformMap[distance];
+              const transform = getTransform(distance);
 
-              if (transform) {
-                sib.style.transform = `translate3d(${transform.translateX * direction}px, 0px, 0px) scale3d(${transform.scale}, ${transform.scale}, ${transform.scale})`;
-                sib.style.zIndex = transform.zIndex;
-              } else {
-                sib.style.transform = '';
-                sib.style.zIndex = '';
-              }
+              sib.style.transform = `translate3d(${transform.translateX * direction}px, 0px, 0px) scale3d(${transform.scale}, ${transform.scale}, ${transform.scale})`;
+              sib.style.zIndex = transform.zIndex;
             });
           }
 
@@ -68,14 +129,15 @@ export default (editor) => {
           });
 
           const siblings = Array.from(el.parentElement.querySelectorAll('.card-slider-slide'));
+          const centerIndex = Math.floor((siblings.length - 1) / 2);
           if (siblings.length > 2) {
-            applyHoverEffect(siblings, 2);
+            applyHoverEffect(siblings, centerIndex);
           }
           if (typeof Swiper !== 'undefined') {
             new Swiper('.card-swiper-custom', {
               effect: 'cards',
               grabCursor: true,
-              initialSlide: 2,
+              initialSlide: centerIndex,
               loop: true,
               loopAdditionalSlides: 1,
               speed: 600,
@@ -173,8 +235,8 @@ export default (editor) => {
         slides = parent.components().filter((comp) => comp.is('card-slider-slide'));
       }
 
-      if (slides.length <= 3) {
-        alert('You must keep at least 3 slides.');
+      if (slides.length <= minSlides) {
+        alert(`You must keep at least ${minSlides} slides.`);
         return;
       }
 
@@ -217,17 +279,6 @@ export default (editor) => {
 
       if (isMobile) {
         alert('Please switch to desktop view to add slides.');
-        return;
-      }
-
-      let slides = [];
-
-      if (isDesktop) {
-        slides = parent.components().filter((comp) => comp.is('card-slider-slide'));
-      }
-
-      if (slides.length >= 5) {
-        alert('You cannot add more than 5 slides.');
         return;
       }
 

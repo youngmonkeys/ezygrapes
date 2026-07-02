@@ -6,6 +6,8 @@ import C from './consts';
 export default ezygrapes.plugins.add(C.pluginId, (editor, opts = {}) => {
   const config = {
     blocks: [C.ref],
+    minSlides: C.minSlides,
+    maxSlides: C.maxSlides,
     ...opts,
   };
 
