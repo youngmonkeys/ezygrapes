@@ -1,26 +1,15 @@
 import { OptionAsDocument } from '../../common';
-import { CssRuleJSON } from '../../css_composer/model/CssRule';
-import { ComponentDefinitionDefined } from '../../dom_components/model/types';
 import Editor from '../../editor';
-
-export interface ParsedCssRule {
-  selectors: string | string[];
-  style: Record<string, string>;
-  atRule?: string;
-  params?: string;
-}
+import type { CustomParserCodeFunction, ParsedCssRule, ParsedElementNode, SyntheticElementCtor } from '../types';
 
 export type CustomParserCss = (input: string, editor: Editor) => ParsedCssRule[];
 
 export type CustomParserHtml = (input: string, options: HTMLParserOptions) => HTMLElement;
 
-export interface HTMLParseResult {
-  html: ComponentDefinitionDefined | ComponentDefinitionDefined[];
-  css?: CssRuleJSON[];
-  doctype?: string;
-  root?: ComponentDefinitionDefined;
-  head?: ComponentDefinitionDefined;
-}
+export type ConvertAttributeValuesOption =
+  | boolean
+  | readonly string[]
+  | ((props: { attribute: string; value: string | boolean; node: HTMLElement | ParsedElementNode }) => boolean);
 
 export interface ParseNodeOptions extends HTMLParserOptions {
   inSvg?: boolean;
@@ -28,6 +17,11 @@ export interface ParseNodeOptions extends HTMLParserOptions {
 }
 
 export interface HTMLParserOptions extends OptionAsDocument {
+  /**
+   * Default custom parser from the code parser registry.
+   */
+  parserCode?: string;
+
   /**
    * DOMParser mime type.
    * If you use the `text/html` parser, it will fix the invalid syntax automatically.
@@ -72,6 +66,28 @@ export interface HTMLParserOptions extends OptionAsDocument {
    * preParser: htmlString => DOMPurify.sanitize(htmlString)
    */
   preParser?: (input: string, opts: { editor: Editor }) => string;
+
+  /**
+   * Configures whether `data-gjs-*` attributes should be automatically converted from hyphenated to camelCase.
+   *
+   * When `true`:
+   * - Hyphenated `data-gjs-*` attributes (e.g., `data-gjs-my-component`) are transformed into camelCase (`data-gjs-myComponent`).
+   * - If `defaults` contains the camelCase version and not the original attribute, the camelCase will be used; otherwise, the original name is kept.
+   *
+   * @default false
+   */
+  convertDataGjsAttributesHyphens?: boolean;
+
+  /**
+   * Convert regular HTML attribute values using the same parser used by `data-gjs-*` attributes.
+   *
+   * - `true`: converts all regular attributes.
+   * - `string[]`: converts only the listed attributes, matched by exact attribute name.
+   * - `Function`: converts attributes when the function returns `true`.
+   *
+   * @default false
+   */
+  convertAttributeValues?: ConvertAttributeValuesOption;
 }
 
 export interface ParserConfig {
@@ -105,6 +121,22 @@ export interface ParserConfig {
   parserHtml?: CustomParserHtml;
 
   /**
+   * Custom HTML code parsers registry.
+   */
+  parsersCode?: Record<string, CustomParserCodeFunction>;
+
+  /**
+   * Selected HTML code parser from the registry.
+   */
+  parserCode?: string;
+
+  /**
+   * Extend the default synthetic element used to bridge legacy `isComponent` checks
+   * when parsing with `parserCode`.
+   */
+  customSyntheticElement?: (SyntheticElement: SyntheticElementCtor) => SyntheticElementCtor;
+
+  /**
    * Default HTML parser options (used in `parserModule.parseHtml('<div...', options)`).
    */
   optionsHtml?: HTMLParserOptions;
@@ -115,12 +147,18 @@ const config: () => ParserConfig = () => ({
   textTypes: ['text', 'textnode', 'comment'],
   parserCss: undefined,
   parserHtml: undefined,
+  parsersCode: {},
+  parserCode: undefined,
+  customSyntheticElement: undefined,
   optionsHtml: {
+    parserCode: undefined,
     htmlType: 'text/html',
     allowScripts: false,
     allowUnsafeAttr: false,
     allowUnsafeAttrValue: false,
     keepEmptyTextNodes: false,
+    convertDataGjsAttributesHyphens: false,
+    convertAttributeValues: false,
   },
 });
 

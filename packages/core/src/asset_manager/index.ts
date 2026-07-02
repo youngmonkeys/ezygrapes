@@ -40,12 +40,9 @@ import { ProjectData } from '../storage_manager';
 import defConfig, { AssetManagerConfig } from './config/config';
 import Asset from './model/Asset';
 import Assets from './model/Assets';
-import AssetsEvents, { AssetOpenOptions } from './types';
+import AssetsEvents, { AssetAddInput, AssetOpenOptions, AssetProps, AssetsCustomData } from './types';
 import AssetsView from './view/AssetsView';
 import FileUploaderView from './view/FileUploader';
-
-// TODO
-type AssetProps = Record<string, any>;
 
 const assetCmd = 'open-assets';
 
@@ -153,7 +150,7 @@ export default class AssetManager extends ItemManagerModule<AssetManagerConfig, 
    * });
    * assetManager.add([{ src: 'img2.jpg' }, { src: 'img2.png' }]);
    */
-  add(asset: string | AssetProps | (string | AssetProps)[], opts: AddOptions = {}) {
+  add(asset: AssetAddInput | AssetAddInput[], opts: AddOptions = {}) {
     // Put the model at the beginning
     if (typeof opts.at == 'undefined') {
       opts.at = 0;
@@ -288,6 +285,10 @@ export default class AssetManager extends ItemManagerModule<AssetManagerConfig, 
     this.getAll().addType(id, definition);
   }
 
+  removeType(id: string) {
+    return this.getAll().removeType(id);
+  }
+
   /**
    * Get type
    * @param {string} id Type ID
@@ -384,7 +385,7 @@ export default class AssetManager extends ItemManagerModule<AssetManagerConfig, 
     this.em.trigger(this.events.custom, this.__customData());
   }
 
-  __customData() {
+  __customData(): AssetsCustomData {
     const bhv = this.__getBehaviour();
     return {
       am: this as AssetManager,
@@ -394,7 +395,7 @@ export default class AssetManager extends ItemManagerModule<AssetManagerConfig, 
       container: bhv.container,
       close: () => this.close(),
       remove: (asset: string | Asset, opts?: Record<string, any>) => this.remove(asset, opts),
-      select: (asset: Asset, complete: boolean) => {
+      select: (asset: Asset, complete?: boolean) => {
         const res = this.add(asset);
         isFunction(bhv.select) && bhv.select(res, complete);
       },

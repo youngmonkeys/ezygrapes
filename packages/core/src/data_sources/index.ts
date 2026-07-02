@@ -1,57 +1,67 @@
 /**
  * This module manages data sources within the editor.
- * You can initialize the module with the editor by passing an instance of `EditorModel`.
- *
- * ```js
- * const editor = new EditorModel();
- * const dsm = new DataSourceManager(editor);
- * ```
- *
  * Once the editor is instantiated, you can use the following API to manage data sources:
  *
  * ```js
+ * const editor = grapesjs.init({ ... });
  * const dsm = editor.DataSources;
  * ```
  *
+ * {REPLACE_EVENTS}
+ *
+ * ## Methods
  * * [add](#add) - Add a new data source.
  * * [get](#get) - Retrieve a data source by its ID.
  * * [getAll](#getall) - Retrieve all data sources.
  * * [remove](#remove) - Remove a data source by its ID.
  * * [clear](#clear) - Remove all data sources.
  *
- * Example of adding a data source:
- *
- * ```js
- * const ds = dsm.add({
- *   id: 'my_data_source_id',
- *   records: [
- *     { id: 'id1', name: 'value1' },
- *     { id: 'id2', name: 'value2' }
- *   ]
- * });
- * ```
+ * [DataSource]: datasource.html
  *
  * @module DataSources
- * @param {EditorModel} em - Editor model.
  */
 
+import { Events } from 'backbone';
+import { isEmpty } from 'underscore';
 import { ItemManagerModule, ModuleConfig } from '../abstract/Module';
 import { AddOptions, collectionEvents, ObjectAny, RemoveOptions } from '../common';
 import EditorModel from '../editor/model/Editor';
-import { get, stringToPath } from '../utils/mixins';
+import { get, set, stringToPath } from '../utils/mixins';
+import defConfig, { DataSourcesConfig } from './config/config';
+import { AnyTypeOperation } from './model/conditional_variables/operators/AnyTypeOperator';
+import { BooleanOperation } from './model/conditional_variables/operators/BooleanOperator';
+import { NumberOperation } from './model/conditional_variables/operators/NumberOperator';
+import { StringOperation } from './model/conditional_variables/operators/StringOperator';
+import { DataCollectionStateType } from './model/data_collection/types';
 import DataRecord from './model/DataRecord';
 import DataSource from './model/DataSource';
 import DataSources from './model/DataSources';
-import { DataSourcesEvents, DataSourceProps, DataRecordProps } from './types';
-import { Events } from 'backbone';
+import {
+  DataCollectionKeys,
+  DataComponentTypes,
+  DataFieldPrimitiveType,
+  DataRecordProps,
+  DataSourceProps,
+  DataSourcesEvents,
+} from './types';
 
-export default class DataSourceManager extends ItemManagerModule<ModuleConfig, DataSources> {
+export default class DataSourceManager extends ItemManagerModule<DataSourcesConfig & ModuleConfig, DataSources> {
   storageKey = 'dataSources';
   events = DataSourcesEvents;
+  dataComponentTypes = DataComponentTypes;
+  dataCollectionKeys = DataCollectionKeys;
+  dataCollectionStateTypes = DataCollectionStateType;
+  dataFieldPrimitiveType = DataFieldPrimitiveType;
+  dataOperationTypes = {
+    any: AnyTypeOperation,
+    boolean: BooleanOperation,
+    number: NumberOperation,
+    string: StringOperation,
+  };
   destroy(): void {}
 
   constructor(em: EditorModel) {
-    super(em, 'DataSources', new DataSources([], em), DataSourcesEvents);
+    super(em, 'DataSources', new DataSources([], em), DataSourcesEvents, defConfig());
     Object.assign(this, Events); // Mixin Backbone.Events
   }
 
@@ -87,22 +97,56 @@ export default class DataSourceManager extends ItemManagerModule<ModuleConfig, D
   }
 
   /**
-   * Get value from data sources by key
-   * @param {String} key Path to value.
-   * @param {any} defValue
+   * Return all data sources.
+   * @returns {Array<[DataSource]>}
+   * @example
+   * const ds = dsm.getAll();
+   */
+  getAll() {
+    return [...this.all.models];
+  }
+
+  /**
+   * Get value from data sources by path.
+   * @param {String} path Path to value.
+   * @param {any} defValue Default value if the path is not found.
    * @returns {any}
    * const value = dsm.getValue('ds_id.record_id.propName', 'defaultValue');
    */
-  getValue(key: string | string[], defValue: any) {
-    return get(this.getContext(), key, defValue);
+  getValue(path: string | string[], defValue?: any, opts?: { context?: Record<string, any> }) {
+    return get(opts?.context || this.getContext(), path, defValue);
   }
 
-  private getContext() {
+  /**
+   * Set value in data sources by path.
+   * @param {String} path Path to value in format 'dataSourceId.recordId.propName'
+   * @param {any} value Value to set
+   * @returns {Boolean} Returns true if the value was set successfully
+   * @example
+   * dsm.setValue('ds_id.record_id.propName', 'new value');
+   */
+  setValue(path: string, value: any) {
+    const [ds, record, propPath] = this.fromPath(path);
+
+    if (record && (propPath || propPath === '')) {
+      let attrs = { ...record.attributes };
+      if (set(attrs, propPath || '', value)) {
+        record.set(attrs);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  getContext() {
     return this.all.reduce((acc, ds) => {
       acc[ds.id] = ds.records.reduce((accR, dr, i) => {
         const dataRecord = dr;
 
-        accR[dataRecord.id || i] = dataRecord.attributes;
+        const attributes = { ...dataRecord.attributes };
+        delete attributes.__p;
+        accR[dataRecord.id || i] = attributes;
 
         return accR;
       }, {} as ObjectAny);
@@ -154,15 +198,16 @@ export default class DataSourceManager extends ItemManagerModule<ModuleConfig, D
    * @returns {Array} Stored data sources.
    */
   store() {
-    const data: any[] = [];
+    const data: DataSourceProps[] = [];
     this.all.forEach((dataSource) => {
-      const skipFromStorage = dataSource.get('skipFromStorage');
+      const { skipFromStorage, transformers, records, schema, ...rest } = dataSource.attributes;
+
       if (!skipFromStorage) {
         data.push({
-          id: dataSource.id,
-          name: dataSource.get('name' as any),
-          records: dataSource.records.toJSON(),
-          skipFromStorage,
+          ...rest,
+          id: rest.id!,
+          schema: !isEmpty(schema) ? schema : undefined,
+          records: !rest.provider ? records : undefined,
         });
       }
     });
@@ -176,11 +221,32 @@ export default class DataSourceManager extends ItemManagerModule<ModuleConfig, D
    * @returns {Object} Loaded data sources.
    */
   load(data: any) {
-    return this.loadProjectData(data);
+    const { config, all, events, em } = this;
+    const result = this.loadProjectData(data);
+
+    if (config.autoloadProviders) {
+      const dsWithProviders = all.filter((ds) => ds.hasProvider);
+
+      if (!!dsWithProviders.length) {
+        const loadProviders = async () => {
+          em.trigger(events.providerLoadAllBefore);
+          const providersToLoad = dsWithProviders.map((ds) => ds.loadProvider());
+          await Promise.all(providersToLoad);
+          em.trigger(events.providerLoadAll);
+        };
+        loadProviders();
+      }
+    }
+
+    return result;
   }
 
   postLoad() {
     const { em, all } = this;
-    em.listenTo(all, collectionEvents, (m, c, o) => em.changesUp(o || c));
+    em.listenTo(all, collectionEvents, (dataSource, c, o) => {
+      const options = o || c;
+      em.changesUp(options, { dataSource, options });
+    });
+    this.em.UndoManager.add(all);
   }
 }

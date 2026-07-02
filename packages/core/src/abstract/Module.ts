@@ -44,7 +44,7 @@ export default abstract class Module<T extends ModuleConfig = ModuleConfig> impl
   collections: Collection[] = [];
   cls: any[] = [];
   state?: Model;
-  events: any;
+  events: object = {};
   model?: any;
   view?: any;
 
@@ -129,18 +129,20 @@ export abstract class ItemManagerModule<
   cls: any[] = [];
   all: TCollection;
   view?: View;
+  events!: Record<string, string>;
+  protected _itemCache = new Map<string, Model>();
 
   constructor(
     em: EditorModel,
     moduleName: string,
     all: any,
-    events?: any,
+    events?: Record<string, string>,
     defaults?: TConf,
     opts: { skipListen?: boolean } = {},
   ) {
     super(em, moduleName, defaults);
     this.all = all;
-    this.events = events;
+    if (events) this.events = events;
     !opts.skipListen && this.__initListen();
   }
 
@@ -206,6 +208,51 @@ export abstract class ItemManagerModule<
     }, {} as any);
   }
 
+  protected _makeCacheKey(m: Model) {
+    return '';
+  }
+
+  protected _cacheItem(item: Model) {
+    const key = this._makeCacheKey(item);
+    key && this._itemCache.set(key, item);
+  }
+
+  protected _uncacheItem(item: Model) {
+    const key = this._makeCacheKey(item);
+    key && this._itemCache.delete(key);
+  }
+
+  protected _clearItemCache() {
+    this._itemCache.clear();
+  }
+
+  protected _onItemsResetCache(collection: Collection) {
+    this._clearItemCache();
+    collection.each((item: Model) => this._cacheItem(item));
+  }
+
+  protected _onItemKeyChange(item: Model) {
+    let oldKey: string | undefined;
+    for (const [key, cachedItem] of (this._itemCache as any).entries()) {
+      if (cachedItem === item) {
+        oldKey = key;
+        break;
+      }
+    }
+
+    if (oldKey) {
+      this._itemCache.delete(oldKey);
+    }
+
+    this._cacheItem(item);
+  }
+
+  protected _setupCacheListeners() {
+    this.em.listenTo(this.all, 'add', this._cacheItem.bind(this));
+    this.em.listenTo(this.all, 'remove', this._uncacheItem.bind(this));
+    this.em.listenTo(this.all, 'reset', this._onItemsResetCache.bind(this));
+  }
+
   __initListen(opts: any = {}) {
     const { all, em, events } = this;
     all &&
@@ -260,9 +307,9 @@ export abstract class ItemManagerModule<
 
   __onAllEvent() {}
 
-  _createId(len = 16) {
+  _createId(len = 16, increase?: number) {
     const all = this.getAll();
-    const ln = all.length + len;
+    const ln = (increase ?? all.length) + len;
     const allMap = this.getAllMap();
     let id;
 

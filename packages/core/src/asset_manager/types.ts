@@ -1,6 +1,18 @@
+import AssetManager from '.';
+import {
+  EventCallbackAdd,
+  EventCallbackAll,
+  EventCallbackRemove,
+  EventCallbackRemoveBefore,
+  EventCallbackUpdate,
+  ObjectAny,
+} from '../common';
+import ComponentView from '../dom_components/view/ComponentView';
 import Asset from './model/Asset';
 
 export type AssetEvent = `${AssetsEvents}`;
+
+export type AssetAddInput = string | AssetProps | Asset;
 
 export interface AssetOpenOptions {
   select?: (asset: Asset, complete: boolean) => void;
@@ -8,6 +20,32 @@ export interface AssetOpenOptions {
   accept?: string;
   target?: any;
 }
+
+export interface AssetsCustomData {
+  am: AssetManager;
+  open: boolean;
+  assets: Asset[];
+  types: string[];
+  container: HTMLElement | undefined;
+  close: () => void;
+  remove: (asset: Asset, opts?: ObjectAny) => Asset;
+  select: (asset: Asset, complete?: boolean) => void;
+  options: AssetOpenOptions;
+}
+
+export interface AssetProps {
+  src: string;
+  [key: string]: unknown;
+}
+
+export interface UploadFileOptions {
+  componentView?: ComponentView;
+  file?: File;
+}
+
+export type UploadFileClb = (result: { data: (AssetProps | string)[] }) => void;
+
+export type UploadFileFn = (ev: DragEvent, clb?: UploadFileClb, opts?: UploadFileOptions) => Promise<void> | undefined;
 
 /**{START_EVENTS}*/
 export enum AssetsEvents {
@@ -90,6 +128,21 @@ export enum AssetsEvents {
   all = 'asset',
 }
 /**{END_EVENTS}*/
+
+export interface AssetsEventCallback {
+  [AssetsEvents.add]: EventCallbackAdd<Asset>;
+  [AssetsEvents.remove]: EventCallbackRemove<Asset>;
+  [AssetsEvents.removeBefore]: EventCallbackRemoveBefore<Asset>;
+  [AssetsEvents.update]: EventCallbackUpdate<Asset>;
+  [AssetsEvents.open]: [];
+  [AssetsEvents.close]: [];
+  [AssetsEvents.uploadStart]: [];
+  [AssetsEvents.uploadEnd]: [any];
+  [AssetsEvents.uploadError]: [Error];
+  [AssetsEvents.uploadResponse]: [any];
+  [AssetsEvents.custom]: [AssetsCustomData];
+  [AssetsEvents.all]: EventCallbackAll<AssetEvent, Asset>;
+}
 
 // need this to avoid the TS documentation generator to break
 export default AssetsEvents;

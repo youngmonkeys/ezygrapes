@@ -1,7 +1,8 @@
 import grapesjs, { Component, Editor, usePlugin } from '../../../src';
+import CssRule from '../../../src/css_composer/model/CssRule';
 import ComponentWrapper from '../../../src/dom_components/model/ComponentWrapper';
 import { EditorConfig } from '../../../src/editor/config/config';
-import type { Plugin } from '../../../src/plugin_manager';
+import PluginsEvents, { Plugin } from '../../../src/plugin_manager/types';
 import { StorageManagerConfig } from '../../../src/storage_manager/config/config';
 import { fixJsDom, fixJsDomIframe, waitEditorEvent } from '../../common';
 
@@ -60,12 +61,7 @@ describe('GrapesJS', () => {
     });
 
     afterEach(() => {
-      var plugins = grapesjs.plugins.getAll();
-      for (let id in plugins) {
-        if (plugins.hasOwnProperty(id)) {
-          delete plugins[id];
-        }
-      }
+      grapesjs.plugins.clear();
     });
 
     test('Main object should be loaded', () => {
@@ -122,8 +118,8 @@ describe('GrapesJS', () => {
       config.protectedCss = '';
       const editor = initTestEditor(config);
       editor.onReady(() => {
-        const htmlEl = editor.Canvas.getDocument().documentElement;
-        expect(htmlEl.outerHTML.replace(/\s+/g, ' ')).toContain('body { background-color: #fff');
+        const htmlEl = editor.Canvas.getDocument()?.documentElement;
+        expect(htmlEl?.outerHTML.replace(/\s+/g, ' ')).toContain('body { background-color: #fff');
         done();
       });
     });
@@ -302,6 +298,176 @@ describe('GrapesJS', () => {
       expect(css).toEqual(`${protCss}.test2{color:red;}.test3{color:blue;}`);
     });
 
+    test('Allow empty css rules option for getCSS method', () => {
+      config.components = '<div class="test-empty"></div>';
+      config.style = '.test-empty{}';
+      const editor = grapesjs.init(config);
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.getStyle().length).toEqual(1);
+      expect(editor.getCss()).toEqual(protCss);
+      expect(editor.getCss({ allowEmpty: true })).toEqual(`${protCss}.test-empty{}`);
+    });
+
+    test('Allow empty css rules option for media rules', () => {
+      config.components = '<div class="test-empty"></div>';
+      config.style = '@media (max-width: 992px){.test-empty{}}';
+      const editor = grapesjs.init(config);
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.getStyle().length).toEqual(1);
+      expect(editor.getCss({ allowEmpty: true })).toEqual(`${protCss}@media (max-width: 992px){.test-empty{}}`);
+    });
+
+    test('Allow empty css rules option with keepUnusedStyles', () => {
+      config.components = '<div></div>';
+      config.style = '.test-empty{}';
+      const editor = grapesjs.init(config);
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.getStyle().length).toEqual(1);
+      expect(editor.getCss({ allowEmpty: true })).toEqual(protCss);
+      expect(editor.getCss({ allowEmpty: true, keepUnusedStyles: true })).toEqual(`${protCss}.test-empty{}`);
+    });
+
+    test('Allow nested css rules option for getCSS method', () => {
+      config.components = '<div class="foo"></div><div class="baz"></div>';
+      const editor = grapesjs.init(config);
+      const rule = editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+      });
+      const rule2 = editor.Css.setRule('.baz', {
+        color: 'blue',
+        '.bar': {
+          color: 'yellow',
+        },
+      });
+      const nested = rule.getStyle('.bar', { withNested: true }) as CssRule;
+      const nested2 = rule2.getStyle('.bar', { withNested: true }) as CssRule;
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.Css.getAll().length).toEqual(4);
+      expect(nested.isNested()).toBe(true);
+      expect(nested2.isNested()).toBe(true);
+      expect(nested).not.toBe(nested2);
+      expect(editor.getCss()).toEqual(`${protCss}.foo{color:green;}.baz{color:blue;}`);
+      expect(editor.getCss({ withNested: true })).toEqual(
+        `${protCss}.foo{color:green;.bar{color:red;}}.baz{color:blue;.bar{color:yellow;}}`,
+      );
+    });
+
+    test('Nested css rules option from config optsCss', () => {
+      config.components = '<div class="foo"></div>';
+      config.optsCss = { withNested: true };
+      const editor = grapesjs.init(config);
+      editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+      });
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.getCss()).toEqual(`${protCss}.foo{color:green;.bar{color:red;}}`);
+    });
+
+    test('Allow multiple nested css rules for the same parent rule', () => {
+      config.components = '<div class="foo"></div>';
+      const editor = grapesjs.init(config);
+      const rule = editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+        '.baz': {
+          color: 'blue',
+        },
+      });
+      const nestedBar = rule.getStyle('.bar', { withNested: true }) as CssRule;
+      const nestedBaz = rule.getStyle('.baz', { withNested: true }) as CssRule;
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.Css.getAll().length).toEqual(3);
+      expect(nestedBar.isNested()).toBe(true);
+      expect(nestedBaz.isNested()).toBe(true);
+      expect(nestedBar).not.toBe(nestedBaz);
+      expect(editor.getCss({ withNested: true })).toEqual(
+        `${protCss}.foo{color:green;.bar{color:red;}.baz{color:blue;}}`,
+      );
+    });
+
+    test('Allow deep nested css rules', () => {
+      config.components = '<div class="foo"></div>';
+      const editor = grapesjs.init(config);
+      const rule = editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+          '.baz': {
+            color: 'blue',
+          },
+        },
+      });
+      const nestedBar = rule.getStyle('.bar', { withNested: true }) as CssRule;
+      const nestedBaz = nestedBar.getStyle('.baz', { withNested: true }) as CssRule;
+      const protCss = editor.getConfig().protectedCss;
+
+      expect(editor.Css.getAll().length).toEqual(3);
+      expect(nestedBar.isNested()).toBe(true);
+      expect(nestedBaz.isNested()).toBe(true);
+      expect(nestedBaz.parentRule).toBe(nestedBar);
+      expect(editor.getCss({ withNested: true })).toEqual(
+        `${protCss}.foo{color:green;.bar{color:red;.baz{color:blue;}}}`,
+      );
+    });
+
+    test('Nested css rules are stored under parent style', () => {
+      config.components = '<div class="foo"></div>';
+      const editor = grapesjs.init(config);
+      editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+      });
+      const projectData = editor.getProjectData();
+
+      expect(projectData.styles).toHaveLength(1);
+      expect(projectData.styles[0].style).toEqual({
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+      });
+
+      const reloaded = grapesjs.init({ ...config, container: document.createElement('div') });
+      reloaded.loadProjectData(projectData);
+      expect(reloaded.Css.getAll().length).toEqual(2);
+      expect(reloaded.getCss({ withNested: true })).toEqual(
+        `${reloaded.getConfig().protectedCss}.foo{color:green;.bar{color:red;}}`,
+      );
+    });
+
+    test('Nested css rules are removed when parent style is replaced', () => {
+      config.components = '<div class="foo"></div>';
+      const editor = grapesjs.init(config);
+      const rule = editor.Css.setRule('.foo', {
+        color: 'green',
+        '.bar': {
+          color: 'red',
+        },
+      });
+      const protCss = editor.getConfig().protectedCss;
+
+      rule.setStyle({ color: 'blue' });
+
+      expect(editor.Css.getAll().length).toEqual(1);
+      expect(editor.getCss({ withNested: true })).toEqual(`${protCss}.foo{color:blue;}`);
+    });
+
     test('Keep unused css classes/selectors option for media rules', () => {
       cssString =
         '.test2{color:red}.test3{color:blue} @media only screen and (max-width: 620px) { .notused { color: red; } } ';
@@ -330,6 +496,16 @@ describe('GrapesJS', () => {
     });
 
     describe('Plugins', () => {
+      let consoleErrorSpy: jest.SpyInstance;
+
+      beforeEach(() => {
+        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      });
+
+      afterEach(() => {
+        consoleErrorSpy.mockRestore();
+      });
+
       test('Adds new storage as plugin and store data there', async () => {
         (config.storageManager as StorageManagerConfig).type = storageId;
         config.plugins = [(e) => e.StorageManager.add(storageId, storageMock)];
@@ -422,6 +598,102 @@ describe('GrapesJS', () => {
         expect(editor.getModel().get('customValue')).toEqual('TEST');
       });
 
+      test('Descriptor plugin requires explicit id and accepts wrapped plugin', () => {
+        const inlinePlugin: TestPlugin = (edt, opts) => {
+          edt.getModel().set('customValue', opts.cVal);
+        };
+        const editor = grapesjs.init({
+          ...config,
+          plugins: [{ id: 'descriptor-plugin', plugin: usePlugin(inlinePlugin, { cVal: 'DESC' }) }],
+        });
+        const plugin = editor.Plugins.get('descriptor-plugin')!;
+        expect(editor.getModel().get('customValue')).toEqual('DESC');
+        expect(plugin.get('options')).toEqual({ cVal: 'DESC' });
+      });
+
+      test('Plugin id is resolved from __gjsPluginId', () => {
+        const inlinePlugin: TestPlugin = () => {};
+        inlinePlugin.__gjsPluginId = 'inline-plugin-id';
+        const editor = grapesjs.init({
+          ...config,
+          plugins: [inlinePlugin],
+        });
+
+        expect(editor.Plugins.get('inline-plugin-id')).toBeTruthy();
+      });
+
+      test('Legacy plugin collector prints deprecation error on add', () => {
+        grapesjs.plugins.add('legacy-plugin', () => {});
+        expect(consoleErrorSpy).toHaveBeenCalled();
+      });
+
+      test('Editor-scoped plugin manager stores plugins in the all collection', () => {
+        const editor = grapesjs.init({
+          ...config,
+          plugins: [{ id: 'scoped-plugin', plugin: () => {} }],
+        });
+
+        expect(editor.Plugins.all.length).toBe(1);
+        expect(editor.Plugins.get('scoped-plugin')).toBe(editor.Plugins.all.at(0));
+      });
+
+      test('Editor-scoped plugin manager triggers plugin events', () => {
+        const result: string[] = [];
+        const editor = grapesjs.init(config);
+        editor.on(PluginsEvents.add, (plugin) => result.push(`add:${plugin.id}`));
+        editor.on(PluginsEvents.remove, (plugin) => result.push(`remove:${plugin.id}`));
+        editor.Plugins.add({ id: 'evt-plugin', plugin: () => {} });
+        editor.Plugins.remove('evt-plugin');
+        expect(result).toEqual(['add:evt-plugin', 'remove:evt-plugin']);
+      });
+
+      test('Plugin manager removes tracked entities on cleanup', () => {
+        const editor = grapesjs.init({
+          ...config,
+          plugins: [
+            {
+              id: 'cleanup-plugin',
+              plugin: (edt) => {
+                edt.Blocks.add('cleanup-block', { label: 'Cleanup', content: '<div>cleanup</div>' });
+                edt.Components.addType('cleanup-type', { model: { defaults: { tagName: 'div' } } });
+              },
+            },
+          ],
+        });
+
+        expect(editor.Blocks.get('cleanup-block')).toBeTruthy();
+        expect(editor.Components.getType('cleanup-type')).toBeTruthy();
+
+        editor.Plugins.remove('cleanup-plugin');
+
+        expect(editor.Blocks.get('cleanup-block')).toBeFalsy();
+        expect(editor.Components.getType('cleanup-type')).toBeFalsy();
+      });
+
+      test('Plugin manager runs custom cleanup once', () => {
+        const cleanupSpy = jest.fn();
+        const editor = grapesjs.init({
+          ...config,
+          plugins: [
+            {
+              id: 'custom-cleanup-plugin',
+              plugin: (edt) => {
+                edt.Blocks.add('custom-cleanup-block', { label: 'Cleanup', content: '<div>cleanup</div>' });
+                return ({ cleanup }) => {
+                  cleanup();
+                  cleanupSpy();
+                };
+              },
+            },
+          ],
+        });
+
+        editor.Plugins.remove('custom-cleanup-plugin');
+
+        expect(cleanupSpy).toHaveBeenCalledTimes(1);
+        expect(editor.Blocks.get('custom-cleanup-block')).toBeFalsy();
+      });
+
       // Problems with iframe loading
       test('Init new editor with custom plugin overrides default commands', () => {
         var editor,
@@ -435,7 +707,7 @@ describe('GrapesJS', () => {
         config.plugins = [pluginName];
 
         editor = grapesjs.init(config);
-        expect(editor.Commands.get('export-template')!.test).toEqual(1);
+        expect((editor.Commands.get('export-template') as any).test).toEqual(1);
       });
 
       describe('usePlugin', () => {
@@ -449,6 +721,20 @@ describe('GrapesJS', () => {
           grapesjs.init({
             ...config,
             plugins: [usePlugin(pluginName, { cVal: optionValue })],
+          });
+          expect(varToTest).toEqual(optionValue);
+        });
+
+        test('Execute named plugin from plugin descriptor', () => {
+          let varToTest = '';
+          const optionValue = 'TEST-DESC';
+          const pluginName = 'descriptor-plugin-name';
+          grapesjs.plugins.add(pluginName, (edt, opts = {}) => {
+            varToTest = opts.cVal || '';
+          });
+          grapesjs.init({
+            ...config,
+            plugins: [{ id: pluginName, plugin: usePlugin(pluginName, { cVal: optionValue }) }],
           });
           expect(varToTest).toEqual(optionValue);
         });

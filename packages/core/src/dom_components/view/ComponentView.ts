@@ -11,7 +11,7 @@ import { setViewEl } from '../../utils/mixins';
 import { DomComponentsConfig } from '../config/config';
 import Component, { avoidInline } from '../model/Component';
 import Components from '../model/Components';
-import { ComponentOptions } from '../model/types';
+import { ComponentOptions, UpdateComponentsOptions } from '../model/types';
 import ComponentsView from './ComponentsView';
 import { ComponentsEvents } from '../types';
 
@@ -48,6 +48,7 @@ TComp> {
   getChildrenSelector?: Function;
   getTemplate?: Function;
   scriptContainer?: HTMLElement;
+  rendered = false;
 
   preinitialize(opt: any = {}) {
     this.opts = opt;
@@ -136,7 +137,7 @@ TComp> {
   /**
    * Callback executed when the `active` event is triggered on component
    */
-  onActive(ev: Event) {}
+  onActive(ev?: Event) {}
 
   /**
    * Callback executed when the `disable` event is triggered on component
@@ -314,7 +315,7 @@ TComp> {
    * @private
    * */
   updateClasses() {
-    const str = this.model.classes.pluck('name').join(' ');
+    const str = this.model.classes.pluck?.('name').join(' ') || '';
     this.setAttribute('class', str);
 
     // Regenerate status class
@@ -359,9 +360,7 @@ TComp> {
       ...(textable && { contenteditable: 'false' }),
     };
 
-    // Remove all current attributes
-    each(el.attributes, (attr) => attrs.push(attr.nodeName));
-    attrs.forEach((attr) => $el.removeAttr(attr));
+    this.__clearAttributes();
     this.updateStyle();
     this.updateHighlight();
     const attr = {
@@ -373,6 +372,13 @@ TComp> {
     keys(attr).forEach((key) => attr[key] === false && delete attr[key]);
 
     $el.attr(attr);
+  }
+
+  __clearAttributes() {
+    const { el, $el } = this;
+    const attrs: string[] = [];
+    each(el.attributes, (attr) => attrs.push(attr.nodeName));
+    attrs.forEach((attr) => $el.removeAttr(attr));
   }
 
   /**
@@ -528,10 +534,11 @@ TComp> {
   }
 
   _setData() {
-    const { model } = this;
+    const { model, el } = this;
     const collection = model.components();
     const view = this;
     this.$el.data({ model, collection, view });
+    setViewEl(el, this);
   }
 
   _createElement(tagName: string): Node {
@@ -563,7 +570,8 @@ TComp> {
     }
   }
 
-  renderAttributes() {
+  renderAttributes(m?: any, v?: any, opts: UpdateComponentsOptions = {}) {
+    if (opts.skipViewUpdate) return;
     this.updateAttributes();
     this.updateClasses();
   }
@@ -590,6 +598,7 @@ TComp> {
         view: this,
         el,
       });
+      this.rendered = true;
     }
   }
 

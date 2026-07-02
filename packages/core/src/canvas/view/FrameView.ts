@@ -1,18 +1,18 @@
-import { bindAll, debounce, isString, isUndefined } from 'underscore';
+import { bindAll, debounce, isFunction, isString } from 'underscore';
 import { ModuleView } from '../../abstract';
 import { BoxRect, ObjectAny } from '../../common';
 import CssRulesView from '../../css_composer/view/CssRulesView';
-import ComponentWrapperView from '../../dom_components/view/ComponentWrapperView';
-import ComponentView from '../../dom_components/view/ComponentView';
 import { type as typeHead } from '../../dom_components/model/ComponentHead';
+import ComponentView from '../../dom_components/view/ComponentView';
+import ComponentWrapperView from '../../dom_components/view/ComponentWrapperView';
+import AutoScroller from '../../utils/AutoScroller';
 import Droppable from '../../utils/Droppable';
 import { append, appendVNodes, createCustomEvent, createEl, motionsEv, off, on } from '../../utils/dom';
 import { hasDnd, setViewEl } from '../../utils/mixins';
 import Canvas from '../model/Canvas';
 import Frame from '../model/Frame';
+import CanvasEvents, { CanvasFrameEventProps } from '../types';
 import FrameWrapView from './FrameWrapView';
-import CanvasEvents from '../types';
-import AutoScroller from '../../utils/AutoScroller';
 
 export default class FrameView extends ModuleView<Frame, HTMLIFrameElement> {
   /** @ts-ignore */
@@ -229,6 +229,7 @@ export default class FrameView extends ModuleView<Frame, HTMLIFrameElement> {
     this.autoScroller.start(this.el, this.getWindow(), {
       lastMaxHeight: this.getWrapper().offsetHeight - this.el.offsetHeight,
       zoom: this.em.getZoomDecimal(),
+      ignoredElement: this.em.Canvas.getSpotsEl(),
     });
   }
 
@@ -251,7 +252,7 @@ export default class FrameView extends ModuleView<Frame, HTMLIFrameElement> {
   renderScripts() {
     const { el, model, em } = this;
     const evLoad = 'frame:load';
-    const evOpts: ObjectAny = { el, model, view: this };
+    const evOpts = { el, model, view: this } as unknown as CanvasFrameEventProps;
     const canvas = this.getCanvasModel();
     const appendScript = (scripts: any[]) => {
       if (scripts.length > 0) {
@@ -339,7 +340,6 @@ export default class FrameView extends ModuleView<Frame, HTMLIFrameElement> {
 
   renderBody() {
     const { config, em, model, ppfx } = this;
-    const doc = this.getDoc();
     const body = this.getBody();
     const win = this.getWindow();
     const hasAutoHeight = model.hasAutoHeight();
@@ -429,15 +429,35 @@ export default class FrameView extends ModuleView<Frame, HTMLIFrameElement> {
     const { view } = em?.Components?.getType('wrapper') || {};
 
     if (!view) return;
-    this.wrapper = new view({
-      model: root,
-      config: {
-        ...root.config,
-        em,
+    if (isFunction(config.customRenderer)) {
+      config.customRenderer({
+        editor: em.Editor,
+        frame: model,
+        window: win,
         frameView: this,
-      },
-    }).render();
-    append(body, this.wrapper?.el!);
+        onMount: (rootView) => {
+          this.wrapper = rootView;
+          this._onRootMount(rootView);
+        },
+      });
+    } else {
+      this.wrapper = new view({
+        model: root,
+        config: {
+          ...root.config,
+          em,
+          frameView: this,
+        },
+      }).render();
+      this._onRootMount(this.wrapper!);
+    }
+  }
+
+  _onRootMount(rootView: ComponentView) {
+    const { config, em, model } = this;
+    const doc = this.getDoc();
+    const body = doc.body;
+    append(body, rootView.el);
     append(
       body,
       new CssRulesView({

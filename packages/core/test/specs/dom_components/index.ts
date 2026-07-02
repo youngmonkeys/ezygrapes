@@ -7,6 +7,7 @@ import ComponentWrapper from '../../../src/dom_components/model/ComponentWrapper
 import { flattenHTML, setupTestEditor } from '../../common';
 import { ProjectData } from '../../../src/storage_manager';
 import { CanMoveReason } from '../../../src/dom_components';
+import { wait } from '../../../src/utils/mixins';
 
 describe('DOM Components', () => {
   describe('Main', () => {
@@ -48,7 +49,6 @@ describe('DOM Components', () => {
     var setEm = () => {
       config.em = editorModel;
     };
-    const createSymbol = (component: Component) => obj.addSymbol(component)!;
 
     beforeEach(() => {
       const editor = new Editor({
@@ -122,7 +122,25 @@ describe('DOM Components', () => {
       expect(obj.getComponents().length).toEqual(2);
     });
 
-    test('Import propertly components and styles with the same ids', () => {
+    test('Import properly component with styles', () => {
+      const id = 'idtest';
+      const { Css, Components } = em;
+      const component = Components.addComponent(
+        `<div id="${id}" style="color:red; padding: 50px 100px">Text</div>`,
+      ) as Component;
+      expect(em.getHtml({ component })).toEqual(`<div id="${id}">Text</div>`);
+      expect(Components.getComponents().length).toEqual(1);
+      const firstComp = Components.getComponents().first();
+      firstComp.addStyle({ margin: '10px' });
+      expect(Css.getAll().length).toEqual(1);
+      expect(Css.getIdRule(id)!.getStyle()).toEqual({
+        color: 'red',
+        padding: '50px 100px',
+        margin: '10px',
+      });
+    });
+
+    test('Import properly components and styles with the same ids', () => {
       obj = em.Components;
       const cc = em.Css;
       const id = 'idtest';
@@ -237,7 +255,7 @@ describe('DOM Components', () => {
       expect(comp.get('editable')).toBe(1);
     });
 
-    test('Remove and undo component with styles', (done) => {
+    test('Remove and undo component with styles', async () => {
       const id = 'idtest2';
       const um = em.UndoManager;
       const cc = em.Css;
@@ -246,28 +264,30 @@ describe('DOM Components', () => {
       <style>
         #${id} { background-color: red }
       </style>`) as Component;
-      obj.getComponents().first().addStyle({ margin: '10px' });
       const rule = cc.getAll().at(0);
-      const css = `#${id}{background-color:red;margin:10px;color:red;padding:50px 100px;}`;
+      expect(rule.toCSS()).toEqual(`#${id}{color:red;padding:50px 100px;background-color:red;}`);
+
+      await wait(); // flush noUndo inline-style move
+
+      obj.getComponents().first().addStyle({ margin: '10px' });
+      const css = `#${id}{color:red;padding:50px 100px;background-color:red;margin:10px;}`;
       expect(rule.toCSS()).toEqual(css);
 
-      setTimeout(() => {
-        // Undo is committed now
-        component.remove();
-        expect(obj.getComponents().length).toBe(0);
-        expect(cc.getAll().length).toBe(0);
-        um.undo();
+      await wait(); // separate style change from remove undo-group
 
-        expect(obj.getComponents().length).toBe(1);
-        expect(cc.getAll().length).toBe(1);
-        expect(obj.getComponents().at(0)).toBe(component);
-        expect(cc.getAll().at(0)).toBe(rule);
+      component.remove();
+      expect(obj.getComponents().length).toBe(0);
+      expect(cc.getAll().length).toBe(0);
 
-        expect(em.getHtml({ component })).toEqual(`<div id="${id}">Text</div>`);
-        expect(rule.toCSS()).toEqual(css);
+      um.undo();
 
-        done();
-      }, 20);
+      expect(obj.getComponents().length).toBe(1);
+      expect(cc.getAll().length).toBe(1);
+      expect(obj.getComponents().at(0)).toBe(component);
+      expect(cc.getAll().at(0)).toBe(rule);
+
+      expect(em.getHtml({ component })).toEqual(`<div id="${id}">Text</div>`);
+      expect(rule.toCSS()).toEqual(css);
     });
 
     describe('Custom components with styles', () => {
@@ -302,6 +322,80 @@ describe('DOM Components', () => {
         cmp.remove();
         expect(obj.getComponents().length).toBe(0);
         expect(em.Css.getAll().length).toBe(0);
+      });
+
+      test('Re-add custom style when the related component is re-inserted', () => {
+        const cmp = obj.addComponent({ type: cmpId }) as Component;
+        expect(cmp.is(cmpId)).toBe(true);
+        expect(em.Css.getAll().length).toBe(1);
+        cmp.remove();
+        expect(em.Css.getAll().length).toBe(0);
+
+        const cmp2 = obj.addComponent({ type: cmpId }) as Component;
+        expect(cmp2.is(cmpId)).toBe(true);
+        const rule = em.Css.getRule(`.${cmpId}`);
+        expect(rule?.getStyle()).toEqual({ color: 'red' });
+        expect(em.Css.getAll().length).toBe(1);
+      });
+
+      test('Re-add component type styles after removing a nested row component', () => {
+        const rowId = 'test-row';
+        const colId = 'test-column';
+
+        obj.addType(rowId, {
+          model: {
+            defaults: {
+              attributes: { class: 'gjs-test-row' },
+              styles: `
+                .gjs-test-row {
+                  display: flex;
+                  gap: 16px;
+                }
+              `,
+              components: [{ type: colId }, { type: colId }, { type: colId }],
+            },
+          },
+        });
+
+        obj.addType(colId, {
+          model: {
+            defaults: {
+              attributes: { class: 'gjs-test-column' },
+              styles: `
+                .gjs-test-column {
+                  flex: 1;
+                }
+              `,
+            },
+          },
+        });
+
+        const row = obj.addComponent({ type: rowId }) as Component;
+        expect(em.Css.getRule('.gjs-test-row')?.getStyle()).toEqual({ display: 'flex', gap: '16px' });
+        expect(em.Css.getRule('.gjs-test-column')?.getStyle()).toEqual({
+          flex: '1 1 0%',
+          'flex-basis': '0%',
+          'flex-grow': '1',
+          'flex-shrink': '1',
+        });
+        expect(em.Css.getAll().length).toBe(2);
+
+        row.remove();
+        expect(obj.getComponents().length).toBe(0);
+        expect(em.Css.getAll().length).toBe(0);
+        expect(em.Css.getRule('.gjs-test-row')).toBeFalsy();
+        expect(em.Css.getRule('.gjs-test-column')).toBeFalsy();
+
+        const rowAgain = obj.getWrapper()!.append({ type: rowId })[0];
+        expect(rowAgain.get('type')).toBe(rowId);
+        expect(em.Css.getAll().length).toBe(2);
+        expect(em.Css.getRule('.gjs-test-row')?.getStyle()).toEqual({ display: 'flex', gap: '16px' });
+        expect(em.Css.getRule('.gjs-test-column')?.getStyle()).toEqual({
+          flex: '1 1 0%',
+          'flex-basis': '0%',
+          'flex-grow': '1',
+          'flex-shrink': '1',
+        });
       });
 
       test('Custom style is not updated if already exists', () => {
@@ -404,6 +498,39 @@ describe('DOM Components', () => {
 
     afterEach(() => {
       editor.destroy();
+    });
+
+    test('Import components and styles with the same ids', () => {
+      const id = 'idtest';
+      const { Components, Css } = editor;
+      const component = Components.addComponent(`
+      <div id="${id}" style="color:red; padding: 50px 100px">Text</div>
+      <style>
+        #${id} {
+        background-color: red;
+        color: blue;
+       }
+      </style>`) as Component;
+      expect(component.getAttributes()).toEqual({ id });
+      expect(em.getHtml({ component })).toEqual(`<div id="${id}">Text</div>`);
+      expect(Components.getComponents().length).toEqual(1);
+      const firstComp = Components.getComponents().first();
+      const rule = Css.getIdRule(id);
+      expect(rule!.getStyle()).toEqual({
+        color: 'red',
+        'background-color': 'red',
+        padding: '50px 100px',
+      });
+      firstComp.addStyle({ margin: '10px' });
+      firstComp.addStyle('width', '100px');
+      expect(Css.getAll().length).toEqual(1);
+      expect(rule!.getStyle()).toEqual({
+        color: 'red',
+        'background-color': 'red',
+        padding: '50px 100px',
+        margin: '10px',
+        width: '100px',
+      });
     });
 
     describe('render components with asDocument', () => {

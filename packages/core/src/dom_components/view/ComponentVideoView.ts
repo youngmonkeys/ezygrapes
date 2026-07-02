@@ -1,4 +1,4 @@
-import ComponentVideo from '../model/ComponentVideo';
+import ComponentVideo, { YT_REFERRER_POLICY } from '../model/ComponentVideo';
 import ComponentImageView from './ComponentImageView';
 import ComponentView from './ComponentView';
 
@@ -18,7 +18,7 @@ export default class ComponentVideoView extends ComponentImageView<ComponentVide
     // @ts-ignore
     ComponentView.prototype.initialize.apply(this, arguments);
     const { model } = this;
-    const props = ['loop', 'autoplay', 'controls', 'color', 'rel', 'modestbranding', 'poster'];
+    const props = ['loop', 'autoplay', 'controls', 'color', 'rel', 'modestbranding', 'poster', 'muted'];
     const events = props.map((p) => `change:${p}`).join(' ');
     this.listenTo(model, 'change:provider', this.updateProvider);
     this.listenTo(model, 'change:src', this.updateSrc);
@@ -80,6 +80,7 @@ export default class ComponentVideoView extends ComponentImageView<ComponentVide
           el.autoplay = model.get('autoplay');
           el.controls = model.get('controls');
           el.poster = model.get('poster');
+          el.muted = model.get('muted');
         }
       }
     }
@@ -116,8 +117,7 @@ export default class ComponentVideoView extends ComponentImageView<ComponentVide
   renderYoutube() {
     const el = document.createElement('iframe');
     el.src = this.model.getYoutubeSrc();
-    el.frameBorder = '0';
-    el.setAttribute('allowfullscreen', 'true');
+    this.updateYoutubeAttributes(el);
     this.initVideoEl(el);
     return el;
   }
@@ -125,8 +125,7 @@ export default class ComponentVideoView extends ComponentImageView<ComponentVide
   renderYoutubeNoCookie() {
     var el = document.createElement('iframe');
     el.src = this.model.getYoutubeNoCookieSrc();
-    el.frameBorder = '0';
-    el.setAttribute('allowfullscreen', 'true');
+    this.updateYoutubeAttributes(el);
     this.initVideoEl(el);
     return el;
   }
@@ -138,6 +137,12 @@ export default class ComponentVideoView extends ComponentImageView<ComponentVide
     el.setAttribute('allowfullscreen', 'true');
     this.initVideoEl(el);
     return el;
+  }
+
+  updateYoutubeAttributes(el: HTMLIFrameElement) {
+    el.frameBorder = '0';
+    el.setAttribute('allowfullscreen', 'true');
+    el.setAttribute('referrerpolicy', YT_REFERRER_POLICY);
   }
 
   initVideoEl(el: HTMLElement) {

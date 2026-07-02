@@ -9,6 +9,7 @@ import { getComponentIds } from '../model/Components';
 import ComponentText from '../model/ComponentText';
 import { ComponentDefinition } from '../model/types';
 import ComponentView from './ComponentView';
+import { ComponentsEvents } from '../types';
 
 export default class ComponentTextView<TComp extends ComponentText = ComponentText> extends ComponentView<TComp> {
   rte?: RichTextEditorModule;
@@ -217,11 +218,9 @@ export default class ComponentTextView<TComp extends ComponentText = ComponentTe
    * @param  {Event} e
    */
   onInput() {
-    const evPfx = 'component';
-    const ev = [`${evPfx}:update`, `${evPfx}:input`].join(' ');
-
-    // Update toolbars
-    this.em?.trigger(ev, this.model);
+    const { model } = this;
+    const events = [ComponentsEvents.update, ComponentsEvents.input];
+    events.forEach((ev) => model.emitWithEditor(ev, model));
   }
 
   /**
@@ -249,9 +248,11 @@ export default class ComponentTextView<TComp extends ComponentText = ComponentTe
     mixins.off(elDocs, 'mousedown', this.onDisable as any);
     mixins[method](elDocs, 'mousedown', this.onDisable as any);
     em[method]('toolbar:run:before', this.onDisable);
+
     if (model) {
+      const rteEvents = em.RichTextEditor.events;
       model[method]('removed', this.onDisable);
-      model.trigger(`rte:${enable ? 'enable' : 'disable'}`);
+      model.trigger(enable ? rteEvents.enable : rteEvents.disable);
     }
 
     // @ts-ignore Avoid closing edit mode on component click

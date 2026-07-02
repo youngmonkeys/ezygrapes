@@ -1,27 +1,22 @@
-import { isArray, isString, keys } from 'underscore';
+import { isArray, isObject, isString, keys } from 'underscore';
 import { Model, ObjectAny, ObjectHash, SetOptions } from '../../common';
 import ParserHtml from '../../parser/model/ParserHtml';
 import Selectors from '../../selector_manager/model/Selectors';
 import { shallowDiff } from '../../utils/mixins';
 import EditorModel from '../../editor/model/Editor';
-import { DataVariableProps } from '../../data_sources/model/DataVariable';
-import DataResolverListener from '../../data_sources/model/DataResolverListener';
 import CssRuleView from '../../css_composer/view/CssRuleView';
 import ComponentView from '../../dom_components/view/ComponentView';
 import Frame from '../../canvas/model/Frame';
-import { DataConditionProps } from '../../data_sources/model/conditional_variables/DataCondition';
-import {
-  getDataResolverInstance,
-  getDataResolverInstanceValue,
-  isDataResolver,
-  isDataResolverProps,
-} from '../../data_sources/utils';
-import { DataResolver } from '../../data_sources/types';
-import { keyCollectionsStateMap } from '../../data_sources/model/data_collection/constants';
+import { ToCssOptions } from '../../css_composer/model/CssRule';
+import { ModelDataResolverWatchers } from '../../dom_components/model/ModelDataResolverWatchers';
+import { DataCollectionStateMap } from '../../data_sources/model/data_collection/types';
+import { DataWatchersOptions } from '../../dom_components/model/ModelResolverWatcher';
+import { DataResolverProps } from '../../data_sources/types';
+import { _StringKey } from 'backbone';
 
-export type StyleProps = Record<string, string | string[] | DataVariableProps | DataConditionProps>;
+export type StyleProps = Record<string, string | string[] | DataResolverProps | ObjectAny>;
 
-export interface UpdateStyleOptions extends SetOptions {
+export interface UpdateStyleOptions extends SetOptions, DataWatchersOptions {
   partial?: boolean;
   addStyle?: StyleProps;
   inline?: boolean;
@@ -30,20 +25,87 @@ export interface UpdateStyleOptions extends SetOptions {
 
 export type StyleableView = ComponentView | CssRuleView;
 
-const parserHtml = ParserHtml();
+const parserHtml = new ParserHtml();
 
 export const getLastStyleValue = (value: string | string[]) => {
   return isArray(value) ? value[value.length - 1] : value;
 };
 
-export default class StyleableModel<T extends ObjectHash = any> extends Model<T> {
+export interface StyleableModelProperties extends ObjectHash {
+  selectors?: any;
+  style?: StyleProps | string;
+}
+
+export interface GetStyleOpts {
+  skipResolve?: boolean;
+  withNested?: boolean;
+}
+
+type WithDataResolvers<T> = {
+  [P in keyof T]?: T[P] | DataResolverProps;
+};
+
+export default class StyleableModel<T extends StyleableModelProperties = any> extends Model<T, UpdateStyleOptions> {
   em?: EditorModel;
   views: StyleableView[] = [];
-  styleResolverListeners: Record<string, DataResolverListener> = {};
+  view?: StyleableView;
+  dataResolverWatchers: ModelDataResolverWatchers<T>;
+  collectionsStateMap: DataCollectionStateMap = {};
+  opt: { em?: EditorModel };
 
   constructor(attributes: T, options: { em?: EditorModel } = {}) {
-    super(attributes, options);
+    const em = options.em!;
+    const dataResolverWatchers = new ModelDataResolverWatchers<T>(undefined, { em });
+    super(attributes, { ...options, dataResolverWatchers });
+    dataResolverWatchers.bindModel(this);
+    this.dataResolverWatchers = dataResolverWatchers;
     this.em = options.em;
+    this.opt = options;
+  }
+
+  get<A extends _StringKey<T>>(attributeName: A, opts?: { skipResolve?: boolean }): T[A] | undefined {
+    if (opts?.skipResolve) return this.dataResolverWatchers.getValueOrResolver('props')[attributeName];
+
+    return super.get(attributeName);
+  }
+
+  set<A extends keyof T>(
+    keyOrAttributes: A,
+    valueOrOptions?: T[A] | DataResolverProps,
+    optionsOrUndefined?: UpdateStyleOptions,
+  ): this;
+  set(keyOrAttributes: WithDataResolvers<T>, options?: UpdateStyleOptions): this;
+  set<A extends keyof T>(
+    keyOrAttributes: WithDataResolvers<T>,
+    valueOrOptions?: T[A] | DataResolverProps | UpdateStyleOptions,
+    optionsOrUndefined?: UpdateStyleOptions,
+  ): this {
+    const defaultOptions: UpdateStyleOptions = {
+      skipWatcherUpdates: false,
+      fromDataSource: false,
+    };
+
+    let attributes: WithDataResolvers<T>;
+    let options: UpdateStyleOptions & { dataResolverWatchers?: ModelDataResolverWatchers<T> };
+
+    if (typeof keyOrAttributes === 'object') {
+      attributes = keyOrAttributes;
+      options = (valueOrOptions as UpdateStyleOptions) || defaultOptions;
+    } else if (typeof keyOrAttributes === 'string') {
+      attributes = { [keyOrAttributes]: valueOrOptions } as Partial<T>;
+      options = optionsOrUndefined || defaultOptions;
+    } else {
+      attributes = {};
+      options = defaultOptions;
+    }
+
+    this.dataResolverWatchers = this.dataResolverWatchers ?? options.dataResolverWatchers;
+    const shouldResolveProps = this.dataResolverWatchers.shouldResolveProps(attributes);
+    const evaluatedValues: Partial<T> = shouldResolveProps
+      ? (this.dataResolverWatchers.addProps(attributes, options) as Partial<T>)
+      : (attributes as Partial<T>);
+
+    return super.set(evaluatedValues, options);
   }
 
   /**
@@ -61,24 +123,62 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
    * @return {Object}
    */
   extendStyle(prop: ObjectAny): ObjectAny {
-    return { ...this.getStyle('', { skipResolve: true }), ...prop };
+    return { ...this.__getStyleForExtend(), ...prop };
+  }
+
+  protected __getStyleForExtend() {
+    return this.getStyle('', { skipResolve: true });
+  }
+
+  protected __getStyleForUpdate(opts: UpdateStyleOptions = {}) {
+    return this.getStyle('', { skipResolve: true });
+  }
+
+  protected __normalizeStyle(style: ObjectAny, opts: UpdateStyleOptions = {}) {
+    return style;
+  }
+
+  protected __onStyleUpdate(propOrig: StyleProps, opts: UpdateStyleOptions = {}) {}
+
+  protected __getStyleResult(
+    style: StyleProps,
+    prop: keyof StyleProps | '' | undefined,
+    opts: GetStyleOpts = {},
+  ): StyleProps | StyleProps[keyof StyleProps] | undefined {
+    const shouldReturnFull = !prop || prop === '';
+    return shouldReturnFull ? style : style[prop];
   }
 
   /**
    * Get style object
    * @return {Object}
    */
-  getStyle(prop?: string | ObjectAny, opts: { skipResolve?: boolean } = {}): StyleProps {
-    const style = this.get('style') || {};
-    const result: ObjectAny = { ...style };
+  getStyle(opts?: GetStyleOpts): StyleProps;
+  getStyle(prop: '' | undefined, opts?: GetStyleOpts): StyleProps;
+  getStyle<K extends keyof StyleProps>(prop: K, opts?: GetStyleOpts): StyleProps[K] | undefined;
+  getStyle(
+    prop?: keyof StyleProps | '' | ObjectAny,
+    opts: GetStyleOpts = {},
+  ): StyleProps | StyleProps[keyof StyleProps] | undefined {
+    const isPropObject = isObject(prop);
+    const resolvedProp = isPropObject ? '' : prop;
+    const resolvedOpts = isPropObject ? (prop as GetStyleOpts) : opts;
+    const rawStyle = this.get('style');
+    const parsedStyle: StyleProps = isString(rawStyle)
+      ? this.parseStyle(rawStyle)
+      : isObject(rawStyle)
+        ? { ...rawStyle }
+        : {};
 
-    if (this.em && !opts.skipResolve) {
-      const resolvedStyle = this.getResolvedStyles({ ...result });
-      // @ts-ignore
-      return prop && isString(prop) ? resolvedStyle[prop] : resolvedStyle;
+    delete parsedStyle.__p;
+
+    if (!resolvedOpts.skipResolve) {
+      return this.__getStyleResult(parsedStyle, resolvedProp, resolvedOpts);
     }
 
-    return prop && isString(prop) ? result[prop] : result;
+    const unresolvedStyles: StyleProps = this.dataResolverWatchers.getValueOrResolver('styles', parsedStyle);
+
+    return this.__getStyleResult(unresolvedStyles, resolvedProp, resolvedOpts);
   }
 
   /**
@@ -92,7 +192,9 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
       prop = this.parseStyle(prop);
     }
 
-    const propOrig = this.getStyle(opts);
+    prop = this.__normalizeStyle(prop, opts);
+
+    const propOrig = this.__getStyleForUpdate(opts);
 
     if (opts.partial || opts.avoidStore) {
       opts.avoidStore = true;
@@ -102,7 +204,7 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
     }
 
     const propNew = { ...prop };
-    const newStyle = { ...propNew };
+    let newStyle = { ...propNew };
 
     keys(newStyle).forEach((key) => {
       // Remove empty style properties
@@ -110,24 +212,18 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
         delete newStyle[key];
         return;
       }
-
-      const styleValue = newStyle[key];
-      if (isDataResolverProps(styleValue)) {
-        const dataResolver = getDataResolverInstance(styleValue, {
-          em: this.em!,
-          collectionsStateMap: this.get(keyCollectionsStateMap) ?? {},
-        });
-
-        if (dataResolver) {
-          newStyle[key] = dataResolver;
-          this.listenToDataResolver(dataResolver, key);
-        }
-      }
     });
 
-    this.set('style', newStyle, opts as any);
+    this.set({ style: newStyle }, opts);
+    newStyle = this.attributes['style'] as StyleProps;
 
-    const diff = shallowDiff(propOrig, newStyle);
+    const changedKeys = Object.keys(shallowDiff(propOrig, propNew));
+    const diff: ObjectAny = changedKeys.reduce((acc, key) => {
+      return {
+        ...acc,
+        [key]: newStyle[key],
+      };
+    }, {});
     // Delete the property used for partial updates
     delete diff.__p;
 
@@ -144,26 +240,16 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
       }
     });
 
+    this.__onStyleUpdate(propOrig, opts);
+
     return newStyle;
   }
 
-  listenToDataResolver(resolver: DataResolver, styleProp: string) {
-    const resolverListener = this.styleResolverListeners[styleProp];
-    if (resolverListener) {
-      resolverListener.listenToResolver();
-    } else {
-      this.styleResolverListeners[styleProp] = new DataResolverListener({
-        em: this.em!,
-        resolver,
-        onUpdate: () => this.updateView(),
-      });
-    }
-  }
-
   getView(frame?: Frame) {
-    let { views, em } = this;
+    let { em, view } = this;
+    const views = this.views || [];
     const frm = frame || em?.getCurrentFrameModel();
-    return frm ? views.find((v) => v.frameView === frm.view) : views[0];
+    return frm ? views.find((v) => v.frameView === frm.view) : views[0] || view;
   }
 
   setView(view: StyleableView) {
@@ -178,31 +264,6 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
 
   updateView() {
     this.views.forEach((view) => view.updateStyles());
-  }
-
-  getResolvedStyles(style: StyleProps): StyleProps {
-    const resultStyle = { ...style };
-
-    keys(resultStyle).forEach((key) => {
-      const styleValue = resultStyle[key];
-
-      if (typeof styleValue === 'string' || Array.isArray(styleValue)) {
-        return;
-      }
-
-      if (isDataResolverProps(styleValue)) {
-        resultStyle[key] = getDataResolverInstanceValue(styleValue, {
-          em: this.em!,
-          collectionsStateMap: this.get(keyCollectionsStateMap) ?? {},
-        });
-      }
-
-      if (isDataResolver(styleValue)) {
-        resultStyle[key] = styleValue.getDataValue();
-      }
-    });
-
-    return resultStyle;
   }
 
   /**
@@ -242,26 +303,37 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
    * @param {Object} [opts={}] Options
    * @return {String}
    */
-  styleToString(opts: ObjectAny = {}) {
+  styleToString(opts: ToCssOptions = {}) {
+    const style = opts.style || (this.getStyle('', opts as any) as StyleProps);
+    return this.__styleToString(style, opts);
+  }
+
+  protected __styleToString(style: StyleProps, opts: ToCssOptions = {}) {
     const result: string[] = [];
-    const style = this.getStyle(opts);
-    const imp = opts.important;
 
     for (let prop in style) {
-      const important = isArray(imp) ? imp.indexOf(prop) >= 0 : imp;
       const firstChars = prop.substring(0, 2);
       const isPrivate = firstChars === '__';
 
       if (isPrivate) continue;
 
-      const value = style[prop];
-      const values = isArray(value) ? (value as string[]) : [value];
-
-      (values as string[]).forEach((val: string) => {
-        const value = `${val}${important ? ' !important' : ''}`;
-        value && result.push(`${prop}:${value};`);
-      });
+      const value = this.__stylePropToString(prop, style[prop], opts);
+      value && result.push(value);
     }
+
+    return result.join('');
+  }
+
+  protected __stylePropToString(prop: string, value: StyleProps[keyof StyleProps], opts: ToCssOptions = {}) {
+    const result: string[] = [];
+    const imp = opts.important;
+    const important = isArray(imp) ? imp.indexOf(prop) >= 0 : imp;
+    const values = isArray(value) ? (value as string[]) : [value];
+
+    (values as string[]).forEach((val: string) => {
+      const value = `${val}${important ? ' !important' : ''}`;
+      value && result.push(`${prop}:${value};`);
+    });
 
     return result.join('');
   }
@@ -273,5 +345,28 @@ export default class StyleableModel<T extends ObjectHash = any> extends Model<T>
   getSelectorsString(opts?: ObjectAny) {
     // @ts-ignore
     return this.selectorsToString ? this.selectorsToString(opts) : this.getSelectors().getFullString();
+  }
+
+  onCollectionsStateMapUpdate(collectionsStateMap: DataCollectionStateMap) {
+    this.collectionsStateMap = collectionsStateMap;
+    this.dataResolverWatchers.onCollectionsStateMapUpdate();
+  }
+
+  clone(attributes?: Partial<T>, opts?: any): typeof this {
+    const props = this.dataResolverWatchers.getProps(this.attributes);
+    const mergedProps = { ...props, ...attributes };
+    const mergedOpts = { ...this.opt, ...opts };
+
+    const ClassConstructor = this.constructor as new (attributes: any, opts?: any) => typeof this;
+
+    return new ClassConstructor(mergedProps, mergedOpts);
+  }
+
+  toJSON(opts?: ObjectAny, attributes?: Partial<T>) {
+    if (opts?.fromUndo) return { ...super.toJSON(opts) };
+    const mergedProps = { ...this.attributes, ...attributes };
+    const obj = this.dataResolverWatchers.getProps(mergedProps);
+
+    return obj;
   }
 }

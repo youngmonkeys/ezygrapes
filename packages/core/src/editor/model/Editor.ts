@@ -32,6 +32,7 @@ import CodeManagerModule from '../../code_manager';
 import UndoManagerModule from '../../undo_manager';
 import RichTextEditorModule from '../../rich_text_editor';
 import CommandsModule from '../../commands';
+import PluginManager from '../../plugin_manager';
 import StyleManager from '../../style_manager';
 import CssRule from '../../css_composer/model/CssRule';
 import { HTMLGeneratorBuildOptions } from '../../code_manager/model/HtmlGenerator';
@@ -45,7 +46,8 @@ import { CanvasSpotBuiltInTypes } from '../../canvas/model/CanvasSpot';
 import DataSourceManager from '../../data_sources';
 import { ComponentsEvents } from '../../dom_components/types';
 import { InitEditorConfig } from '../..';
-import { EditorEvents } from '../types';
+import { EditorEvents, SelectComponentOptions } from '../types';
+import type { EditorEvent, EditorEventCallbacks, EditorEventHandler } from '../types';
 
 Backbone.$ = $;
 
@@ -67,15 +69,17 @@ const deps: (new (em: EditorModel) => IModule)[] = [
   LayerManager,
   CanvasModule,
   CommandsModule,
+  PluginManager,
   BlockManager,
   DataSourceManager,
 ];
 const storableDeps: (new (em: EditorModel) => IModule & IStorableModule)[] = [
+  DataSourceManager, // Ensure DS are loaded before other modules
   AssetManager,
   CssComposer,
   PageManager,
   ComponentManager,
-  DataSourceManager,
+  SelectorManager,
 ];
 
 Extender({ $ });
@@ -115,9 +119,11 @@ export default class EditorModel extends Model {
   events = EditorEvents;
   __skip = false;
   defaultRunning = false;
+  loadTriggered = false;
   destroyed = false;
   _config: InitEditorConfig;
   _storageTimeout?: ReturnType<typeof setTimeout>;
+  _isStoring: boolean = false;
   attrsOrig: any;
   timedInterval?: ReturnType<typeof setTimeout>;
   updateItr?: ReturnType<typeof setTimeout>;
@@ -153,6 +159,10 @@ export default class EditorModel extends Model {
 
   get Commands(): CommandsModule {
     return this.get('Commands');
+  }
+
+  get Plugins(): PluginManager {
+    return this.get('PluginManager');
   }
 
   get Keymaps(): KeymapsModule {
@@ -239,6 +249,25 @@ export default class EditorModel extends Model {
     return this.get('DataSources');
   }
 
+  on<E extends EditorEvent>(event: E, callback: EditorEventHandler<E>, context?: any) {
+    return super.on(event, callback, context);
+  }
+
+  once<E extends EditorEvent>(event: E, callback: EditorEventHandler<E>, context?: any) {
+    return super.once(event, callback, context);
+  }
+
+  off<E extends EditorEvent>(event?: E, callback?: EditorEventHandler<E>, context?: any) {
+    return super.off(event, callback, context);
+  }
+
+  trigger<E extends EditorEvent>(
+    event: E,
+    ...args: E extends keyof EditorEventCallbacks ? EditorEventCallbacks[E] : any[]
+  ) {
+    return super.trigger(event, ...args);
+  }
+
   constructor(conf: EditorConfig = {}) {
     super();
     this._config = conf;
@@ -278,14 +307,14 @@ export default class EditorModel extends Model {
     this.on('change:componentHovered', this.componentHovered, this);
     this.on('change:changesCount', this.updateChanges, this);
     this.on('change:readyLoad change:readyCanvas', this._checkReady, this);
-    toLog.forEach((e) => this.listenLog(e));
+    toLog.forEach((e) => this.listenLog(e as keyof typeof logs));
 
     // Deprecations
-    [{ from: 'change:selectedComponent', to: 'component:toggled' }].forEach((event) => {
+    [{ from: 'change:selectedComponent', to: ComponentsEvents.toggled }].forEach((event) => {
       const eventFrom = event.from;
       const eventTo = event.to;
       this.listenTo(this, eventFrom, (...args) => {
-        this.trigger(eventTo, ...args);
+        this.trigger(eventTo, ...(args as any));
         this.logWarning(`The event '${eventFrom}' is deprecated, replace it with '${eventTo}'`);
       });
     });
@@ -301,9 +330,12 @@ export default class EditorModel extends Model {
     return this.config.el;
   }
 
-  listenLog(event: string) {
-    //@ts-ignore
-    this.listenTo(this, `log:${event}`, logs[event]);
+  listenLog(event: keyof typeof logs) {
+    this.listenTo(this, `log:${event}`, (...args) => {
+      if (!this.config.log) return;
+      const logFn = logs[event];
+      logFn?.(...args);
+    });
   }
 
   get config() {
@@ -458,12 +490,13 @@ export default class EditorModel extends Model {
    * @param  {Object} opt  Options
    * @private
    * */
-  handleUpdates(model: any, val: any, opt: any = {}) {
+  handleUpdates(opt: any = {}, data: Record<string, any>) {
     // Component has been added temporarily - do not update storage or record changes
-    if (this.__skip || opt.temporary || opt.noCount || opt.avoidStore || opt.partial || !this.get('ready')) {
+    if (this.__skip || !this.loadTriggered || opt.temporary || opt.noCount || opt.avoidStore || opt.partial) {
       return;
     }
 
+    this.trigger(this.events.updateBefore, data);
     this.timedInterval && clearTimeout(this.timedInterval);
     this.timedInterval = setTimeout(() => {
       const curr = this.getDirtyCount() || 0;
@@ -472,8 +505,8 @@ export default class EditorModel extends Model {
     }, 0);
   }
 
-  changesUp(opts: any) {
-    this.handleUpdates(0, 0, opts);
+  changesUp(opts: any, data: Record<string, any>) {
+    this.handleUpdates(opts, data);
   }
 
   /**
@@ -485,8 +518,8 @@ export default class EditorModel extends Model {
    * */
   componentHovered(editor: any, component: any, options: any) {
     const prev = this.previous('componentHovered');
-    prev && this.trigger('component:unhovered', prev, options);
-    component && this.trigger('component:hovered', component, options);
+    prev && this.trigger(ComponentsEvents.unhovered, prev, options);
+    component && this.trigger(ComponentsEvents.hovered, component, options);
   }
 
   /**
@@ -513,7 +546,7 @@ export default class EditorModel extends Model {
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
-  setSelected(el?: Component | Component[], opts: any = {}) {
+  setSelected(el?: Component | Component[], opts: SelectComponentOptions = {}) {
     const { event } = opts;
     const ctrlKey = event && (event.ctrlKey || event.metaKey);
     const { shiftKey } = event || {};
@@ -600,7 +633,7 @@ export default class EditorModel extends Model {
    * @param  {Object} [opts={}] Options, optional
    * @public
    */
-  addSelected(component: Component | Component[], opts: any = {}) {
+  addSelected(component: Component | Component[], opts: SelectComponentOptions = {}) {
     const models: Component[] = isArray(component) ? component : [component];
 
     models.forEach((model) => {
@@ -624,6 +657,16 @@ export default class EditorModel extends Model {
         type: CanvasSpotBuiltInTypes.Select,
         component: model,
       });
+
+      if (opts.activate) {
+        const view = model.getView();
+
+        if (view?.rendered) {
+          view.onActive(opts.event);
+        } else {
+          model.once(ComponentsEvents.render, ({ view }) => view.onActive(opts.event));
+        }
+      }
     });
   }
 
@@ -694,9 +737,8 @@ export default class EditorModel extends Model {
       return upHovered();
     }
 
-    const ev = 'component:hover';
     opts.forceChange && upHovered();
-    this.trigger(`${ev}:before`, cmp, opts);
+    this.trigger(ComponentsEvents.hoverBefore, cmp, opts);
 
     // Check for valid hoverable
     if (!cmp.get('hoverable')) {
@@ -711,7 +753,7 @@ export default class EditorModel extends Model {
 
     if (!opts.abort) {
       upHovered(cmp, opts);
-      this.trigger(ev, cmp, opts);
+      this.trigger(ComponentsEvents.hover, cmp, opts);
     }
   }
 
@@ -831,7 +873,7 @@ export default class EditorModel extends Model {
     const keepUnusedStyles = !isUndefined(opts.keepUnusedStyles) ? opts.keepUnusedStyles : config.keepUnusedStyles;
     const cssc = this.Css;
     const wrp = opts.component || this.Components.getComponent();
-    const protCss = !avoidProt ? config.protectedCss! : '';
+    const protCss = !avoidProt ? config.protectedCss || '' : '';
     const css =
       wrp &&
       this.CodeManager.getCode(wrp, 'css', {
@@ -858,9 +900,19 @@ export default class EditorModel extends Model {
    * @public
    */
   async store<T extends StorageOptions>(options?: T) {
+    if (this._isStoring) return;
+    this._isStoring = true;
+    // We use a 1ms timeout to defer the cleanup to the next tick of the event loop.
+    // This prevents a race condition where a store operation, like 'sync:content',
+    // might increase the dirty count before it can be properly cleared.
+    setTimeout(() => {
+      this.clearDirtyCount();
+    }, 1);
     const data = this.storeData();
     await this.Storage.store(data, options);
-    this.clearDirtyCount();
+    setTimeout(() => {
+      this._isStoring = false;
+    }, 1);
     return data;
   }
 
@@ -896,14 +948,16 @@ export default class EditorModel extends Model {
     return project;
   }
 
-  loadData(project: ProjectData = {}, opts: EditorLoadOptions = {}): ProjectData {
+  loadData(project: ProjectData = {}, options: EditorLoadOptions = {}): ProjectData {
+    const evData = { project, options, initial: !!options.initial };
     let loaded = false;
     if (!isEmptyObj(project)) {
       this.storables.forEach((module) => module.clear());
       this.storables.forEach((module) => module.load(project));
       loaded = true;
     }
-    this.trigger(EditorEvents.projectLoad, { project, loaded, initial: !!opts.initial });
+    this.trigger(EditorEvents.projectLoad, { ...evData, loaded });
+    loaded && this.trigger(EditorEvents.projectLoaded, evData);
     return project;
   }
 

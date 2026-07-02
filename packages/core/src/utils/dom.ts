@@ -168,7 +168,8 @@ export const getElRect = (el?: Element) => {
   let rectText;
 
   if (isTextNode(el)) {
-    const range = document.createRange();
+    if (!el.parentNode) return def;
+    const range = el.ownerDocument.createRange();
     range.selectNode(el);
     rectText = range.getBoundingClientRect();
     range.detach();
@@ -246,4 +247,10 @@ export const off = <E extends Event = Event>(
   evs.forEach((ev) => {
     els.forEach((el) => el?.removeEventListener(ev, fn as EventListener, opts));
   });
+};
+
+export const processDataGjsAttributeHyphen = (str: string): string => {
+  const camelCased = str.replace(/-([a-zA-Z0-9])/g, (_, char) => char.toUpperCase());
+
+  return camelCased;
 };

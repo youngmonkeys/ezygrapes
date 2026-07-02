@@ -15,13 +15,28 @@ const REPLACE_EVENTS = '{REPLACE\\_EVENTS}';
 
 const log = (...args) => console.log(...args);
 
+const hasTemplateLiteralType = (value) => {
+  if (!value || typeof value !== 'object') return false;
+  if (value.type === 'TemplateLiteralType') return true;
+  return Object.values(value).some((item) =>
+    Array.isArray(item) ? item.some((nested) => hasTemplateLiteralType(nested)) : hasTemplateLiteralType(item),
+  );
+};
+
+const sanitizeUnsupportedTypes = (comments = []) =>
+  comments.map((comment) =>
+    comment.kind === 'typedef' && hasTemplateLiteralType(comment.type)
+      ? { ...comment, type: { type: 'NameExpression', name: 'string' } }
+      : comment,
+  );
+
 const getEventsMdFromTypes = async (filePath) => {
   const dirname = filePath.replace(basename(filePath), '');
   const typesFilePath = `${dirname}types.ts`;
 
   if (existsSync(typesFilePath)) {
     const resTypes = await build([typesFilePath], { shallow: true }).then((cm) =>
-      formats.md(cm /*{ markdownToc: true }*/),
+      formats.md(sanitizeUnsupportedTypes(cm) /*{ markdownToc: true }*/),
     );
     const indexFrom = resTypes.indexOf(START_EVENTS) + START_EVENTS.length;
     const indexTo = resTypes.indexOf(END_EVENTS);
@@ -31,10 +46,12 @@ const getEventsMdFromTypes = async (filePath) => {
       .replace(/\n### Examples\n/gi, '')
       .replace(/\n## types\n/gi, '')
       .replace(/## /gi, '* ')
+      .replace(/^\* [A-Za-z][A-Za-z0-9]*Event\s*$/gm, '')
       .replace(/\\`/gi, '`')
       .replace(/##/gi, '')
       .replace(/\\\[/gi, '[')
       .replace(/\]\\\(/gi, '](')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
 
     return result;
@@ -97,33 +114,43 @@ async function generateDocs() {
         throw `File not found '${filePath}'`;
       }
 
-      return build([filePath], { shallow: true })
-        .then((cm) => formats.md(cm /*{ markdownToc: true }*/))
-        .then(async (output) => {
-          let addLogs = [];
-          let result = output
-            .replace(/\*\*\\\[/g, '**[')
-            .replace(/\*\*\(\\\[/g, '**([')
-            .replace(/<\\\[/g, '<[')
-            .replace(/<\(\\\[/g, '<([')
-            .replace(/\| \\\[/g, '| [')
-            .replace(/\\n```js/g, '```js')
-            .replace(/docsjs\./g, '')
-            .replace('**Extends ModuleModel**', '')
-            .replace('**Extends Model**', '');
+      try {
+        return build([filePath], { shallow: true })
+          .then((cm) => formats.md(cm /*{ markdownToc: true }*/))
+          .then(async (output) => {
+            let addLogs = [];
+            let result = output
+              .replace(/\*\*\\\[/g, '**[')
+              .replace(/\*\*\(\\\[/g, '**([')
+              .replace(/<\\\[/g, '<[')
+              .replace(/<\(\\\[/g, '<([')
+              .replace(/\| \\\[/g, '| [')
+              .replace(/\\n```js/g, '```js')
+              .replace(/docsjs\./g, '')
+              .replace('**Extends ModuleModel**', '')
+              .replace('**Extends Model**', '');
 
-          // Search for module event documentation
-          if (result.indexOf(REPLACE_EVENTS) >= 0) {
-            const eventsMd = await getEventsMdFromTypes(filePath);
-            if (eventsMd && result.indexOf(REPLACE_EVENTS) >= 0) {
-              addLogs.push('replaced events');
+            // Search for module event documentation
+            if (result.indexOf(REPLACE_EVENTS) >= 0) {
+              try {
+                const eventsMd = await getEventsMdFromTypes(filePath);
+                if (eventsMd && result.indexOf(REPLACE_EVENTS) >= 0) {
+                  addLogs.push('replaced events');
+                }
+                result = eventsMd ? result.replace(REPLACE_EVENTS, `## Available Events\n${eventsMd}`) : result;
+              } catch (err) {
+                console.error(`Failed getting events: ${file[0]}`);
+                throw err;
+              }
             }
-            result = eventsMd ? result.replace(REPLACE_EVENTS, `## Available Events\n${eventsMd}`) : result;
-          }
 
-          writeFileSync(`${docRoot}/api/${file[1]}`, result);
-          log('Created', file[1], addLogs.length ? `(${addLogs.join(', ')})` : '');
-        });
+            writeFileSync(`${docRoot}/api/${file[1]}`, result);
+            log('Created', file[1], addLogs.length ? `(${addLogs.join(', ')})` : '');
+          });
+      } catch (err) {
+        console.error(`Build failed: ${file[0]}`);
+        throw err;
+      }
     }),
   );
 

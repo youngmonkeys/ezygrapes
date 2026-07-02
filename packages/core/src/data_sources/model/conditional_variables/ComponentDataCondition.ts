@@ -1,34 +1,31 @@
 import Component from '../../../dom_components/model/Component';
 import {
-  ComponentDefinition as ComponentProperties,
+  ComponentAddType,
   ComponentDefinitionDefined,
   ComponentOptions,
+  ComponentProperties,
   ToHTMLOptions,
-  ComponentAddType,
 } from '../../../dom_components/model/types';
 import { toLowerCase } from '../../../utils/mixins';
-import { DataCondition, DataConditionOutputChangedEvent, DataConditionProps, DataConditionType } from './DataCondition';
+import { DataComponentTypes, DataResolver } from '../../types';
+import { ComponentWithDataResolver } from '../ComponentWithDataResolver';
+import { DataCollectionStateMap } from '../data_collection/types';
+import { DataCondition, DataConditionProps, DataConditionType } from './DataCondition';
 import { ConditionProps } from './DataConditionEvaluator';
 import { StringOperation } from './operators/StringOperator';
-import { ObjectAny } from '../../../common';
-import { DataConditionIfTrueType, DataConditionIfFalseType } from './constants';
-
-export type DataConditionDisplayType = typeof DataConditionIfTrueType | typeof DataConditionIfFalseType;
 
 export interface ComponentDataConditionProps extends ComponentProperties {
-  type: typeof DataConditionType;
+  type: DataComponentTypes.condition;
   dataResolver: DataConditionProps;
 }
 
-export default class ComponentDataCondition extends Component {
-  dataResolver: DataCondition;
-
+export default class ComponentDataCondition extends ComponentWithDataResolver<DataConditionProps> {
   get defaults(): ComponentDefinitionDefined {
     return {
       // @ts-ignore
       ...super.defaults,
       droppable: false,
-      type: DataConditionType,
+      type: DataComponentTypes.condition,
       dataResolver: {
         condition: {
           left: '',
@@ -38,23 +35,13 @@ export default class ComponentDataCondition extends Component {
       },
       components: [
         {
-          type: DataConditionIfTrueType,
+          type: DataComponentTypes.conditionTrue,
         },
         {
-          type: DataConditionIfFalseType,
+          type: DataComponentTypes.conditionFalse,
         },
       ],
     };
-  }
-
-  constructor(props: ComponentDataConditionProps, opt: ComponentOptions) {
-    // @ts-ignore
-    super(props, opt);
-
-    const { condition } = props.dataResolver;
-    this.dataResolver = new DataCondition({ condition }, { em: opt.em });
-
-    this.listenToPropsChange();
   }
 
   isTrue() {
@@ -93,28 +80,16 @@ export default class ComponentDataCondition extends Component {
     return this.getOutputContent()?.getInnerHTML(opts) ?? '';
   }
 
+  protected createResolverInstance(
+    props: DataConditionProps,
+    options: ComponentOptions & { collectionsStateMap: DataCollectionStateMap },
+  ): DataResolver {
+    return new DataCondition(props, options);
+  }
+
   private setComponentsAtIndex(index: number, newContent: ComponentAddType) {
     const component = this.components().at(index);
     component?.components(newContent);
-  }
-
-  private listenToPropsChange() {
-    this.on('change:dataResolver', () => {
-      this.dataResolver.set(this.get('dataResolver'));
-    });
-  }
-
-  toJSON(opts?: ObjectAny): ComponentProperties {
-    const json = super.toJSON(opts);
-    const dataResolver = this.dataResolver.toJSON();
-    delete dataResolver.type;
-    delete dataResolver.ifTrue;
-    delete dataResolver.ifFalse;
-
-    return {
-      ...json,
-      dataResolver,
-    };
   }
 
   static isComponent(el: HTMLElement) {

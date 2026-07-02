@@ -257,7 +257,7 @@ export default class Trait extends Model<TraitProperties> {
     component.trigger(TraitsEvents.value, props);
     em?.trigger(TraitsEvents.value, props);
     // This should be triggered for any trait prop change
-    em?.trigger('trait:update', props);
+    em?.trigger(TraitsEvents.update, props);
   }
 
   getTargetValue(opts: TraitGetValueOptions = {}) {
@@ -266,6 +266,7 @@ export default class Trait extends Model<TraitProperties> {
     const getValue = this.get('getValue');
     let value;
 
+    const skipResolve = opts.skipResolve;
     if (getValue) {
       value = getValue({
         editor: em?.getEditor()!,
@@ -274,8 +275,9 @@ export default class Trait extends Model<TraitProperties> {
       });
     } else if (this.changeProp) {
       value = component.get(name);
+      if (skipResolve) value = component.dataResolverWatchers.getValueOrResolver('props', { [name]: value })[name];
     } else {
-      value = component.getAttributes()[name];
+      value = component.getAttributes({ skipResolve })[name];
     }
 
     if (opts.useType) {

@@ -192,12 +192,12 @@ describe('Managing pages', () => {
     em.on(pm.events.add, eventAdd);
     pm.add({});
     expect(pm.getAll().length).toBe(2);
-    expect(eventAdd).toBeCalledTimes(1);
+    expect(eventAdd).toHaveBeenCalledTimes(1);
   });
 
   test('Abort add page', () => {
     em.on(pm.events.addBefore, (p, c, opts) => {
-      opts.abort = 1;
+      opts.abort = true;
     });
     pm.add({});
     expect(pm.getAll().length).toBe(1);
@@ -205,7 +205,7 @@ describe('Managing pages', () => {
 
   test('Abort add page and complete', () => {
     em.on(pm.events.addBefore, (p, complete, opts) => {
-      opts.abort = 1;
+      opts.abort = true;
       complete();
     });
     pm.add({});
@@ -218,12 +218,12 @@ describe('Managing pages', () => {
     const page = pm.add({})!;
     pm.remove(`${page.id}`);
     expect(pm.getAll().length).toBe(1);
-    expect(eventRm).toBeCalledTimes(1);
+    expect(eventRm).toHaveBeenCalledTimes(1);
   });
 
   test('Abort remove page', () => {
     em.on(pm.events.removeBefore, (p, c, opts) => {
-      opts.abort = 1;
+      (opts as any).abort = true;
     });
     const page = pm.add({})!;
     pm.remove(`${page.id}`);
@@ -232,7 +232,7 @@ describe('Managing pages', () => {
 
   test('Abort remove page and complete', () => {
     em.on(pm.events.removeBefore, (p, complete, opts) => {
-      opts.abort = 1;
+      (opts as any).abort = true;
       complete();
     });
     const page = pm.add({})!;
@@ -247,8 +247,8 @@ describe('Managing pages', () => {
     const up = { name: 'Test' };
     const opts = { myopts: 1 };
     page.set(up, opts);
-    expect(event).toBeCalledTimes(1);
-    expect(event).toBeCalledWith(page, up, opts);
+    expect(event).toHaveBeenCalledTimes(1);
+    expect(event).toHaveBeenCalledWith(page, up, opts);
   });
 
   test('Prevent duplicate ids in components and styles', () => {

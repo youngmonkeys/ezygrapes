@@ -20,6 +20,20 @@ describe('Canvas', () => {
     expect(canvas).toBeTruthy();
   });
 
+  describe('Focus', () => {
+    test('hasFocus() returns false if document is unavailable', () => {
+      jest.spyOn(canvas, 'getDocument').mockReturnValue(null as any);
+      expect(canvas.hasFocus()).toBe(false);
+    });
+
+    test('hasFocus() proxies document hasFocus when available', () => {
+      const hasFocus = jest.fn(() => true);
+      jest.spyOn(canvas, 'getDocument').mockReturnValue({ hasFocus } as any);
+      expect(canvas.hasFocus()).toBe(true);
+      expect(hasFocus).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Canvas Spots', () => {
     describe('addSpot()', () => {
       test('Add single spot', () => {
@@ -125,10 +139,10 @@ describe('Canvas', () => {
         em.on(canvas.events.spotAdd, eventAdd);
         em.on(canvas.events.spot, eventAll);
         const spot = canvas.addSpot({ type: Select });
-        expect(eventAdd).toBeCalledTimes(1);
-        expect(eventAdd).toBeCalledWith({ spot });
+        expect(eventAdd).toHaveBeenCalledTimes(1);
+        expect(eventAdd).toHaveBeenCalledWith({ spot });
         setTimeout(() => {
-          expect(eventAll).toBeCalledTimes(1);
+          expect(eventAll).toHaveBeenCalledTimes(1);
           done();
         });
       });
@@ -141,10 +155,10 @@ describe('Canvas', () => {
         const spot = canvas.addSpot({ id: 'spot1', type: Select });
         canvas.addSpot({ id: 'spot1', type: Target });
 
-        expect(eventUpdate).toBeCalledTimes(1);
-        expect(eventUpdate).toBeCalledWith({ spot });
+        expect(eventUpdate).toHaveBeenCalledTimes(1);
+        expect(eventUpdate).toHaveBeenCalledWith({ spot });
         setTimeout(() => {
-          expect(eventAll).toBeCalledTimes(1);
+          expect(eventAll).toHaveBeenCalledTimes(1);
           done();
         });
       });
@@ -156,10 +170,10 @@ describe('Canvas', () => {
         em.on(canvas.events.spot, eventAll);
         const spot = canvas.addSpot({ type: Select });
         canvas.removeSpots();
-        expect(eventRemove).toBeCalledTimes(1);
-        expect(eventRemove).toBeCalledWith({ spot });
+        expect(eventRemove).toHaveBeenCalledTimes(1);
+        expect(eventRemove).toHaveBeenCalledWith({ spot });
         setTimeout(() => {
-          expect(eventAll).toBeCalledTimes(1);
+          expect(eventAll).toHaveBeenCalledTimes(1);
           done();
         });
       });

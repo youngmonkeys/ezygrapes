@@ -29,6 +29,16 @@ export type CssGeneratorBuildOptions = {
    * Force keep all defined rules. Toggle on in case output looks different inside/outside of the editor.
    */
   keepUnusedStyles?: boolean;
+
+  /**
+   * Include rules with empty style declarations.
+   */
+  allowEmpty?: boolean;
+
+  /**
+   * Include nested CSS rules.
+   */
+  withNested?: boolean;
   rules?: CssRule[];
   clearStyles?: boolean;
 };
@@ -100,6 +110,8 @@ export default class CssGenerator extends Model {
       }
 
       rules.forEach((rule) => {
+        if (rule.isNested()) return;
+
         const atRule = rule.getAtRule();
 
         if (atRule) {
@@ -127,6 +139,8 @@ export default class CssGenerator extends Model {
         const mRules = item.value;
 
         mRules.forEach((rule) => {
+          if (rule.isNested()) return;
+
           const ruleStr = this.buildFromRule(rule, dump, opts);
 
           if (rule.get('singleAtRule')) {
@@ -172,7 +186,7 @@ export default class CssGenerator extends Model {
     });
 
     if ((selectorStrNoAdd && found) || selectorsAdd || singleAtRule || !model) {
-      const block = rule.getDeclaration({ body: 1 });
+      const block = rule.getDeclaration({ allowEmpty: opts.allowEmpty, withNested: opts.withNested });
       block && (opts.json ? (result = rule) : (result += block));
     } else {
       dump.push(rule);

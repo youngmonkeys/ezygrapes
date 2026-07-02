@@ -9,15 +9,13 @@
  * })
  * ```
  *
- * Once the editor is instantiated you can use its API. Before using these methods you should get the module from the instance
+ * Once the editor is instantiated you can use its API. Before using these methods you should get the module from the instance.
  *
  * ```js
  * const layers = editor.Layers;
  * ```
  *
- * ## Available Events
- * * `layer:root` - Root layer changed. The new root component is passed as an argument to the callback.
- * * `layer:component` - Component layer is updated. The updated component is passed as an argument to the callback.
+ * {REPLACE_EVENTS}
  *
  * ## Methods
  * * [setRoot](#setroot)
@@ -39,38 +37,17 @@
  * @module Layers
  */
 
-import { isString, bindAll } from 'underscore';
+import { bindAll, isString } from 'underscore';
 import { ModuleModel } from '../abstract';
 import Module from '../abstract/Module';
 import Component from '../dom_components/model/Component';
+import { ComponentsEvents } from '../dom_components/types';
 import EditorModel from '../editor/model/Editor';
 import { hasWin, isComponent, isDef } from '../utils/mixins';
 import defConfig, { LayerManagerConfig } from './config/config';
+import { LayerData, LayerEvents } from './types';
 import View from './view/ItemView';
-import { ComponentsEvents } from '../dom_components/types';
-
-interface LayerData {
-  name: string;
-  open: boolean;
-  selected: boolean;
-  hovered: boolean;
-  visible: boolean;
-  locked: boolean;
-  components: Component[];
-}
-
-export const evAll = 'layer';
-export const evPfx = `${evAll}:`;
-export const evRoot = `${evPfx}root`;
-export const evComponent = `${evPfx}component`;
-export const evCustom = `${evPfx}custom`;
-
-const events = {
-  all: evAll,
-  root: evRoot,
-  component: evComponent,
-  custom: evCustom,
-};
+export type { LayerEvent } from './types';
 
 const styleOpts = { mediaText: '' };
 
@@ -88,7 +65,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
 
   view?: View;
 
-  events = events;
+  events = LayerEvents;
 
   constructor(em: EditorModel) {
     super(em, 'LayerManager', defConfig());
@@ -101,7 +78,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
 
   onLoad() {
     const { em, config, model } = this;
-    model.listenTo(em, 'component:selected', this.componentChanged);
+    model.listenTo(em, ComponentsEvents.selected, this.componentChanged);
     model.on('change:root', this.__onRootChange);
     model.listenTo(em, propsToListen, this.__onComponent);
     this.componentChanged();
@@ -184,7 +161,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
    */
   setVisible(component: Component, value: boolean) {
     const prevDspKey = '__prev-display';
-    const style: any = component.getStyle(styleOpts);
+    const style: any = component.getStyle(styleOpts as any);
     const { display } = style;
 
     if (value) {
@@ -202,7 +179,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
 
     component.setStyle(style, styleOpts as any);
     this.updateLayer(component);
-    this.em.trigger('component:toggled'); // Updates Style Manager #2938
+    this.em.trigger(ComponentsEvents.toggled); // Updates Style Manager #2938
   }
 
   /**
@@ -211,7 +188,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
    * @returns {Boolean}
    */
   isVisible(component: Component): boolean {
-    return !isStyleHidden(component.getStyle(styleOpts));
+    return !isStyleHidden(component.getStyle(styleOpts as any));
   }
 
   /**
@@ -276,7 +253,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
   setLayerData(component: Component, data: Partial<Omit<LayerData, 'components'>>, opts = {}) {
     const { em, config } = this;
     const { open, selected, hovered, visible, locked, name } = data;
-    const cmpOpts = { fromLayers: true, ...opts };
+    const cmpOpts = { fromLayers: true, ...opts } as any;
 
     if (isDef(open)) {
       this.setOpen(component, open!);
@@ -358,9 +335,10 @@ export default class LayerManager extends Module<LayerManagerConfig> {
   }
 
   __onRootChange() {
+    const { em, events } = this;
     const root = this.getRoot();
     this.view?.setRoot(root);
-    this.em.trigger(evRoot, root);
+    em.trigger(events.root, root);
     this.__trgCustom();
   }
 
@@ -390,6 +368,7 @@ export default class LayerManager extends Module<LayerManagerConfig> {
   }
 
   updateLayer(component: Component, opts?: any) {
-    this.em.trigger(evComponent, component, opts);
+    const { em, events } = this;
+    em.trigger(events.component, component, opts);
   }
 }

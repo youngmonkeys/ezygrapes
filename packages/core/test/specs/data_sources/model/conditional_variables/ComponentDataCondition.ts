@@ -1,9 +1,10 @@
-import { Component, Components, ComponentView, DataSourceManager, Editor } from '../../../../../src';
-import { DataConditionIfTrueType } from '../../../../../src/data_sources/model/conditional_variables/constants';
+import { DataSourceManager, Editor } from '../../../../../src';
 import { DataVariableType } from '../../../../../src/data_sources/model/DataVariable';
+import ComponentDataCondition from '../../../../../src/data_sources/model/conditional_variables/ComponentDataCondition';
 import { DataConditionType } from '../../../../../src/data_sources/model/conditional_variables/DataCondition';
 import { AnyTypeOperation } from '../../../../../src/data_sources/model/conditional_variables/operators/AnyTypeOperator';
 import { NumberOperation } from '../../../../../src/data_sources/model/conditional_variables/operators/NumberOperator';
+import { DataComponentTypes } from '../../../../../src/data_sources/types';
 import ComponentDataConditionView from '../../../../../src/data_sources/view/ComponentDataConditionView';
 import ComponentWrapper from '../../../../../src/dom_components/model/ComponentWrapper';
 import EditorModel from '../../../../../src/editor/model/Editor';
@@ -17,7 +18,6 @@ import {
   setupTestEditor,
   TRUE_CONDITION,
 } from '../../../../common';
-import ComponentDataCondition from '../../../../../src/data_sources/model/conditional_variables/ComponentDataCondition';
 
 describe('ComponentDataCondition', () => {
   let editor: Editor;
@@ -147,7 +147,7 @@ describe('ComponentDataCondition', () => {
       },
       components: [
         {
-          type: DataConditionIfTrueType,
+          type: DataComponentTypes.conditionTrue,
           components: {
             type: DataConditionType,
             dataResolver: {
@@ -263,6 +263,24 @@ describe('ComponentDataCondition', () => {
     expect(ifTrueEl.textContent).toContain(ifTrueText);
     expect(ifFalseEl.style.display).toBe('');
     expect(ifFalseEl.textContent).toContain(ifFalseText);
+  });
+
+  test("fixes: ComponentDatacondition dataResolver type 'data-variable' issue", () => {
+    const dataResolver = {
+      type: DataConditionType,
+      condition: {
+        left: 1,
+        operator: NumberOperation.greaterThan,
+        right: 0,
+      },
+    };
+    const cmp = cmpRoot.append({
+      type: DataConditionType,
+      dataResolver,
+      components: [ifTrueComponentDef, ifFalseComponentDef],
+    })[0] as ComponentDataCondition;
+
+    expect(cmp.getDataResolver()).toBe(dataResolver);
   });
 });
 

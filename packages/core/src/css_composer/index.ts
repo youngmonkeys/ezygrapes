@@ -40,6 +40,9 @@ import EditorModel from '../editor/model/Editor';
 import Component from '../dom_components/model/Component';
 import { ObjectAny, PrevToNewIdMap } from '../common';
 import { UpdateStyleOptions } from '../domain_abstract/model/StyleableModel';
+import { CssEvents } from './types';
+import CssRuleView from './view/CssRuleView';
+import type { DataBindingImportPolicy } from '../data_sources/types';
 
 /** @private */
 interface RuleOptions {
@@ -71,21 +74,35 @@ export interface GetSetRuleOptions extends UpdateStyleOptions {
 
 type CssRuleStyle = Required<CssRuleProperties>['style'];
 
+export interface AddCollectionOptions extends UpdateStyleOptions {
+  extend?: boolean | number;
+  avoidUpdateStyle?: boolean;
+  dataBindingImportPolicy?: DataBindingImportPolicy;
+  at?: number;
+}
+
 export default class CssComposer extends ItemManagerModule<CssComposerConfig & { pStylePrefix?: string }> {
+  classes = {
+    CssRule,
+    CssRules,
+    CssRuleView,
+    CssRulesView,
+  };
   rules: CssRules;
   rulesView?: CssRulesView;
+  events = CssEvents;
 
   Selectors = Selectors;
 
   storageKey = 'styles';
-
+  protected _itemCache = new Map<string, CssRule>();
   /**
    * Initializes module. Automatically called with a new instance of the editor
    * @param {Object} config Configurations
    * @private
    */
   constructor(em: EditorModel) {
-    super(em, 'CssComposer', null, {}, defConfig());
+    super(em, 'CssComposer', null, CssEvents, defConfig());
     const { config } = this;
 
     const ppfx = config.pStylePrefix;
@@ -95,6 +112,35 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
     config.rules = this.em.config.style || config.rules || '';
 
     this.rules = new CssRules([], config);
+    this.all = this.rules as any;
+    this._setupCacheListeners();
+  }
+
+  protected override _setupCacheListeners() {
+    super._setupCacheListeners();
+    this.em.listenTo(this.rules, 'change:selectors change:state change:mediaText', this._onItemKeyChange.bind(this));
+  }
+
+  protected _makeCacheKey(rule: CssRule) {
+    const atRuleKey = rule.getAtRule();
+    const selectorsKey = rule.selectorsToString();
+    return `${atRuleKey}__${selectorsKey}`;
+  }
+
+  _makeCacheKeyFromProps(ruleProps: CssRuleProperties) {
+    const { atRuleType = '', mediaText = '', state = '', selectorsAdd = '', selectors = [] } = ruleProps;
+
+    const selectorsStr = selectors.map((selector) => (isString(selector) ? selector : selector.toString())).join('');
+
+    const selectorsRes = [];
+    selectorsStr && selectorsRes.push(`${selectorsStr}${state ? `:${state}` : ''}`);
+    selectorsAdd && selectorsRes.push(selectorsAdd);
+    const selectorsKey = selectorsRes.join(', ');
+
+    const typeStr = atRuleType ? `@${atRuleType}` : mediaText ? '@media' : '';
+    const atRuleKey = typeStr + (mediaText && typeStr ? ` ${mediaText}` : '');
+
+    return `${atRuleKey}__${selectorsKey}`;
   }
 
   /**
@@ -103,6 +149,7 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
    */
   onLoad() {
     this.rules.add(this.config.rules, { silent: true });
+    this._onItemsResetCache(this.rules as any);
   }
 
   /**
@@ -123,6 +170,28 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
       // @ts-ignore Fix add() first in CssRules
       all: this.rules,
     });
+  }
+
+  /**
+   * Find a rule in the collection by its properties.
+   * @private
+   */
+  _findRule(
+    selectors: any,
+    state?: string,
+    width?: string,
+    ruleProps?: Omit<CssRuleProperties, 'selectors'>,
+  ): CssRule | null {
+    let slc = selectors;
+    if (isString(selectors)) {
+      const sm = this.em.Selectors;
+      const singleSel = selectors.split(',')[0].trim();
+      const node = this.em.Parser.parserCss.checkNode({ selectors: singleSel } as any)[0];
+      slc = sm.get(node.selectors as string[]);
+    }
+
+    const rule = this.rules.find((r) => r.compare(slc, state, width, ruleProps)) || null;
+    return rule;
   }
 
   /**
@@ -148,27 +217,38 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
     const s = state || '';
     const w = width || '';
     const opt = { ...opts } as CssRuleProperties;
-    let rule = this.get(selectors, s, w, opt);
+    const key = this._makeCacheKeyFromProps({
+      state: s,
+      mediaText: w,
+      ...opt,
+      selectors: Array.isArray(selectors) ? selectors : [selectors],
+    });
 
-    // do not create rules that were found before
-    // unless this is a single at-rule, for which multiple declarations
-    // make sense (e.g. multiple `@font-type`s)
+    const cached = this._itemCache.get(key);
+    if (cached && cached.config && !cached.config.singleAtRule) {
+      return cached;
+    }
+
+    let rule = this._findRule(selectors, s, w, opt);
+
     if (rule && rule.config && !rule.config.singleAtRule) {
-      return rule;
-    } else {
-      opt.state = s;
-      opt.mediaText = w;
-      opt.selectors = [];
-      // #4727: Prevent updating atRuleType if already defined
-      if (w && !opt.atRuleType) {
-        opt.atRuleType = 'media';
-      }
-      rule = new CssRule(opt, this.config);
-      // @ts-ignore
-      rule.get('selectors').add(selectors, addOpts);
-      this.rules.add(rule, addOpts);
+      this._cacheItem(rule);
       return rule;
     }
+
+    opt.state = s;
+    opt.mediaText = w;
+    opt.selectors = [];
+    if (w && !opt.atRuleType) opt.atRuleType = 'media';
+
+    rule = new CssRule(opt, this.config);
+    // @ts-ignore
+    rule.get('selectors').add(selectors, addOpts);
+    this.rules.add(rule, addOpts);
+
+    this._cacheItem(rule);
+
+    return rule;
   }
 
   /**
@@ -190,20 +270,24 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
    *   color: '#000',
    * });
    * */
-  get(
-    selectors: any,
-    state?: string,
-    width?: string,
-    ruleProps?: Omit<CssRuleProperties, 'selectors'>,
-  ): CssRule | undefined {
-    let slc = selectors;
-    if (isString(selectors)) {
-      const sm = this.em.Selectors;
-      const singleSel = selectors.split(',')[0].trim();
-      const node = this.em.Parser.parserCss.checkNode({ selectors: singleSel } as any)[0];
-      slc = sm.get(node.selectors as string[]);
+  get(selectors: any, state?: string, width?: string, ruleProps?: Omit<CssRuleProperties, 'selectors'>) {
+    const key = this._makeCacheKeyFromProps({
+      ...ruleProps,
+      selectors: Array.isArray(selectors) ? selectors : [selectors],
+      state,
+      width,
+      mediaText: width,
+    });
+    const cached = this._itemCache.get(key);
+    if (cached) return cached;
+
+    const rule = this._findRule(selectors, state, width, ruleProps);
+
+    if (rule) {
+      this._cacheItem(rule);
     }
-    return this.rules.find((rule) => rule.compare(slc, state, width, ruleProps)) || null;
+
+    return rule;
   }
 
   getAll() {
@@ -219,12 +303,14 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
    * @return {Array<Model>}
    * @private
    */
-  addCollection(data: string | CssRuleJSON[], opts: Record<string, any> = {}, props = {}) {
+  addCollection(data: string | CssRuleJSON[], opts: AddCollectionOptions = {}, props = {}) {
     const { em } = this;
     const result: CssRule[] = [];
+    const parsedImportOpts: AddCollectionOptions = { ...opts, parsedImportSource: 'css' as const };
 
     if (isString(data)) {
       data = em.Parser.parseCss(data);
+      opts = parsedImportOpts;
     }
 
     const d = data instanceof Array ? data : [data];
@@ -253,7 +339,7 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
       isObject(props) && model.set(props, opts);
 
       if (updateStyle) {
-        const styleUpdate = opts.extend ? { ...model.get('style'), ...style } : style;
+        const styleUpdate = opts.extend ? { ...model.getStyle('', { skipResolve: true }), ...style } : style;
         model.setStyle(styleUpdate, opts);
       }
 
@@ -476,8 +562,9 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
    */
   remove(rule: string | CssRule, opts?: any) {
     const toRemove = isString(rule) ? this.getRules(rule) : rule;
-    const result = this.getAll().remove(toRemove, opts);
-    return isArray(result) ? result : [result];
+    const arr = Array.isArray(toRemove) ? toRemove : [toRemove];
+    const result = this.getAll().remove(arr, opts);
+    return Array.isArray(result) ? result : [result];
   }
 
   /**
@@ -485,6 +572,7 @@ export default class CssComposer extends ItemManagerModule<CssComposerConfig & {
    * @return {this}
    */
   clear(opts = {}) {
+    this._clearItemCache();
     this.getAll().reset([], opts);
     return this;
   }

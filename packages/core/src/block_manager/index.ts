@@ -36,10 +36,8 @@ import Block, { BlockProperties } from './model/Block';
 import Blocks from './model/Blocks';
 import Categories from '../abstract/ModuleCategories';
 import Category, { getItemsByCategory } from '../abstract/ModuleCategory';
-import { BlocksByCategory, BlocksEvents } from './types';
+import { BlocksByCategory, BlocksCustomData, BlocksEvents } from './types';
 import BlocksView from './view/BlocksView';
-
-export type BlockEvent = `${BlocksEvents}`;
 
 export default class BlockManager extends ItemManagerModule<BlockManagerConfig, Blocks> {
   blocks: Blocks;
@@ -72,11 +70,11 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
 
   onInit() {
     const { config, blocks, blocksVisible } = this;
-    blocks.add(config.blocks || []);
     // Setup the sync between the global and public collections
     blocks.on('add', (model) => blocksVisible.add(model));
     blocks.on('remove', (model) => blocksVisible.remove(model));
     blocks.on('reset', (coll) => blocksVisible.reset(coll.models));
+    blocks.add(config.blocks || []);
   }
 
   /**
@@ -90,7 +88,7 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
     this.em.trigger(this.events.custom, this.__customData());
   }
 
-  __customData() {
+  __customData(): BlocksCustomData {
     const bhv = this.__getBehaviour();
     return {
       bm: this as BlockManager,
@@ -134,14 +132,16 @@ export default class BlockManager extends ItemManagerModule<BlockManagerConfig, 
       const toActive = block.get('activate') || oldActive;
       const toSelect = block.get('select');
       const first = isArray(cmp) ? cmp[0] : cmp;
+      const selected = toSelect || (toActive && toSelect !== false);
 
-      if (toSelect || (toActive && toSelect !== false)) {
-        em.setSelected(first);
+      if (selected) {
+        em.setSelected(first, { activate: toActive });
+      } else if (toActive) {
+        first.trigger('active');
       }
 
-      if (toActive) {
-        first.trigger('active');
-        oldActive && first.unset(oldKey);
+      if (toActive && oldActive) {
+        first.unset(oldKey);
       }
 
       if (block.get('resetId')) {

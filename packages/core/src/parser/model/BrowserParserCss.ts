@@ -66,25 +66,28 @@ export const parseSelector = (str = '') => {
   const result: string[][] = [];
   const sels = str.split(',');
 
-  for (var i = 0, len = sels.length; i < len; i++) {
-    var sel = sels[i].trim();
+  // Will accept only concatenated classes and last
+  // class might be with state (eg. :hover) complex state (:hover:not(.active))
+  // as long as the state does not contain commas.
+  // Can also accept SINGLE ID selectors, eg. `#myid`, `#myid:hover`
+  // Composed are not valid: `#myid.some-class`, `#myid.some-class:hover
 
-    // Will accept only concatenated classes and last
-    // class might be with state (eg. :hover), nothing else.
-    // Can also accept SINGLE ID selectors, eg. `#myid`, `#myid:hover`
-    // Composed are not valid: `#myid.some-class`, `#myid.some-class:hover`
-    if (/^(\.{1}[\w\-]+)+(:{1,2}[\w\-()]+)?$/gi.test(sel) || /^(#{1}[\w\-]+){1}(:{1,2}[\w\-()]+)?$/gi.test(sel)) {
-      var cls = sel.split('.').filter(Boolean);
-      result.push(cls);
+  const checkForClass = /^(\.[\w\-]+)+((:{1,2}[\w\-]+)(\([^)]*\))?)*$/;
+
+  const checkForId = /^#[\w\-]+((:{1,2}[\w\-]+)(\([^)]*\))?)*$/;
+
+  for (let i = 0; i < sels.length; i++) {
+    const sel = sels[i].trim();
+
+    if (checkForClass.test(sel) || checkForId.test(sel)) {
+      const parts = sel.split(/\.(?![^()]*\))/).filter(Boolean);
+      result.push(parts);
     } else {
       add.push(sel);
     }
   }
 
-  return {
-    result,
-    add,
-  };
+  return { result, add };
 };
 
 /**
@@ -101,6 +104,40 @@ export const parseStyle = (node: CSSStyleRule) => {
     const propValue = stl.getPropertyValue(propName);
     const important = stl.getPropertyPriority(propName);
     style[propName] = `${propValue}${important ? ` !${important}` : ''}`;
+  }
+
+  return style;
+};
+
+const getNestedRuleKey = (node: CSSRule) => {
+  const selectorText = (node as CSSStyleRule).selectorText?.trim();
+
+  if (selectorText) {
+    // CSSOM serializes nested relative selectors with the implied nesting
+    // selector inserted (eg. `& .child`), while the nested style object keeps
+    // only the original nested key (eg. `.child`).
+    return selectorText.replace(/^&(?:\s+)?/, '').trim();
+  }
+
+  const { cssText = '' } = node;
+  const blockIndex = cssText.indexOf('{');
+
+  return blockIndex >= 0 ? cssText.slice(0, blockIndex).trim() : '';
+};
+
+export const parseRuleStyle = (node: CSSStyleRule | CSSRule) => {
+  const style = parseStyle(node as CSSStyleRule) as Record<string, any>;
+  const nestedNodes = (node as CSSStyleRule).cssRules || [];
+
+  // Nested CSS rules stay attached to the parent declaration block in the
+  // parsed output, eg. `{ color: 'green', '.child': { color: 'red' } }`.
+  for (let i = 0, len = nestedNodes.length; i < len; i++) {
+    const nestedNode = nestedNodes[i];
+    const nestedKey = getNestedRuleKey(nestedNode);
+
+    if (!nestedKey) continue;
+
+    style[nestedKey] = parseRuleStyle(nestedNode);
   }
 
   return style;
@@ -193,7 +230,7 @@ export const parseNode = (el: CSSStyleSheet | CSSRule) => {
 
     if (!sels && !isSingleAtRule) continue;
 
-    const style = parseStyle(node as CSSStyleRule);
+    const style = parseRuleStyle(node);
     const selsParsed = parseSelector(sels);
     const selsAdd = selsParsed.add;
     const selsArr: string[][] = selsParsed.result;

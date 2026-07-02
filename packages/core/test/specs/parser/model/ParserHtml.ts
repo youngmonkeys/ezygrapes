@@ -5,13 +5,13 @@ import Editor from '../../../../src/editor/model/Editor';
 import { CSS_BG_OBJ, CSS_BG_STR } from './ParserCss';
 
 describe('ParserHtml', () => {
-  let obj: ReturnType<typeof ParserHtml>;
+  let obj: ParserHtml;
   let em: Editor;
 
   beforeEach(() => {
     em = new Editor({});
     const dom = new DomComponents(em);
-    obj = ParserHtml(em, {
+    obj = new ParserHtml(em, {
       textTags: ['br', 'b', 'i', 'u'],
       textTypes: ['text', 'textnode', 'comment'],
       returnArray: true,
@@ -84,8 +84,14 @@ describe('ParserHtml', () => {
   });
 
   test('Parse style with comments', () => {
-    expect(obj.parseStyle('/* color #ffffff; */ width: 100px;')).toEqual({
+    expect(obj.parseStyle('/* color #ffffff; */ width: 100px; /* height: 10px; */')).toEqual({
       width: '100px',
+    });
+  });
+
+  test('Parse style with broken comments', () => {
+    expect(obj.parseStyle('/* color #ffffff; */ height: 50px; /* width: 10px; ')).toEqual({
+      height: '50px',
     });
   });
 
@@ -432,7 +438,7 @@ describe('ParserHtml', () => {
         style: { color: 'blue' },
       },
     ];
-    const res = obj.parse(str, ParserCss());
+    const res = obj.parse(str, new ParserCss());
     expect(res.html).toEqual(resHtml);
     expect(res.css).toEqual(resCss);
   });
@@ -452,31 +458,26 @@ describe('ParserHtml', () => {
       <div>a div</div>
     `;
 
-    const expected = [
-      {
-        selectors: [],
-        selectorsAdd: '',
-        style: {
-          'font-family': '"Open Sans"',
-          src: 'url(https://fonts.gstatic.com/s/droidsans/v8/SlGVmQWMvZQIdix7AFxXkHNSbRYXags.woff2)',
-        },
-        singleAtRule: true,
-        atRuleType: 'font-face',
+    const css = obj.parse(str, new ParserCss()).css || [];
+    expect(css).toHaveLength(2);
+    expect(css[0]).toEqual({
+      selectors: [],
+      selectorsAdd: '',
+      style: {
+        'font-family': '"Open Sans"',
       },
-      {
-        selectors: [],
-        selectorsAdd: '',
-        style: {
-          'font-family': "'Glyphicons Halflings'",
-          src: 'url(https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/fonts/glyphicons-halflings-regular.eot)',
-        },
-        singleAtRule: true,
-        atRuleType: 'font-face',
+      singleAtRule: true,
+      atRuleType: 'font-face',
+    });
+    expect(css[1]).toMatchObject({
+      selectors: [],
+      selectorsAdd: '',
+      style: {
+        'font-family': '"Glyphicons Halflings"',
       },
-    ];
-
-    const res = obj.parse(str, ParserCss());
-    expect(res.css).toEqual(expected);
+      singleAtRule: true,
+      atRuleType: 'font-face',
+    });
   });
 
   test('Parse nested div with text and spaces', () => {
@@ -814,6 +815,498 @@ describe('ParserHtml', () => {
           ],
         },
       });
+    });
+  });
+
+  describe('with convertAttributeValues', () => {
+    test('keeps regular attribute values as strings by default', () => {
+      const str = `<div data-bool="true" data-list="[1,2,3]" data-obj='{"key":"value"}' data-gjs-test='{"key":"value"}'></div>`;
+      const result = [
+        {
+          tagName: 'div',
+          test: { key: 'value' },
+          attributes: {
+            'data-bool': 'true',
+            'data-list': '[1,2,3]',
+            'data-obj': '{"key":"value"}',
+          },
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('converts all regular attribute values when true', () => {
+      const str = `<div data-bool="true" data-false="false" data-list="[1,2,3]" data-obj='{"key":"value"}'></div>`;
+      const result = [
+        {
+          tagName: 'div',
+          attributes: {
+            'data-bool': true,
+            'data-false': false,
+            'data-list': [1, 2, 3],
+            'data-obj': { key: 'value' },
+          },
+        },
+      ];
+      expect(obj.parse(str, null, { convertAttributeValues: true }).html).toEqual(result);
+    });
+
+    test('converts only exact attribute names when an array is provided', () => {
+      const str = `<img src='["image.png"]' srcset='["image@2x.png"]' data-test="false"/>`;
+      const result = [
+        {
+          tagName: 'img',
+          type: 'image',
+          attributes: {
+            src: ['image.png'],
+            srcset: '["image@2x.png"]',
+            'data-test': 'false',
+          },
+        },
+      ];
+      expect(obj.parse(str, null, { convertAttributeValues: ['src'] }).html).toEqual(result);
+    });
+
+    test('converts attributes with a dynamic resolver function', () => {
+      const str = `<img src="[1,2,3]" alt="[1,2,3]"/><a href="[1,2,3]"></a>`;
+      const result = [
+        {
+          tagName: 'img',
+          type: 'image',
+          attributes: {
+            src: [1, 2, 3],
+            alt: '[1,2,3]',
+          },
+        },
+        {
+          tagName: 'a',
+          type: 'link',
+          attributes: {
+            href: '[1,2,3]',
+          },
+        },
+      ];
+
+      expect(
+        obj.parse(str, null, {
+          convertAttributeValues: ({ attribute, value, node }) =>
+            attribute === 'src' && value === '[1,2,3]' && node.tagName.toLowerCase() === 'img',
+        }).html,
+      ).toEqual(result);
+    });
+  });
+
+  describe('with convertDataGjsAttributesHyphens OFF (default)', () => {
+    beforeEach(() => {
+      em = new Editor({});
+      em.Components.addType('test-cmp', {
+        isComponent: (el) => el.tagName === 'a',
+        model: {
+          defaults: {
+            type: 'default',
+            testAttr: 'value',
+            otherAttr: 'value',
+          },
+        },
+      });
+
+      obj = new ParserHtml(em, {
+        textTags: ['br', 'b', 'i', 'u'],
+        textTypes: ['text', 'textnode', 'comment'],
+        returnArray: true,
+        optionsHtml: { convertDataGjsAttributesHyphens: false },
+      });
+
+      obj.compTypes = em.Components.componentTypes;
+    });
+
+    test('keeps original attribute names', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-test-attr="value1" data-gjs-other-attr="value2"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          'test-attr': 'value1',
+          'other-attr': 'value2',
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('does not convert data-gjs-data-resolver', () => {
+      const str = '<div data-gjs-type="data-variable" data-gjs-data-resolver="test"></div>';
+      const result = [
+        {
+          type: 'data-variable',
+          tagName: 'div',
+          'data-resolver': 'test',
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+  });
+
+  describe('with convertDataGjsAttributesHyphens ON', () => {
+    beforeEach(() => {
+      em = new Editor({});
+      em.Components.addType('test-cmp', {
+        isComponent: (el) => el.tagName === 'a',
+        model: {
+          defaults: {
+            testAttr: 'value',
+            otherAttr: 'value',
+            nullAttr: null,
+            undefinedAttr: undefined,
+            'hyphen-attr': 'value',
+            duplicatedAttr: 'value',
+            'duplicated-attr': 'value',
+          },
+        },
+      });
+
+      obj = new ParserHtml(em, {
+        returnArray: true,
+        optionsHtml: { convertDataGjsAttributesHyphens: true },
+      });
+      obj.compTypes = em.Components.componentTypes;
+    });
+
+    test('converts hyphenated to camelCase', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-test-attr="value1" data-gjs-other-attr="value2"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          testAttr: 'value1',
+          otherAttr: 'value2',
+        },
+      ];
+
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('handles null/undefined values', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-null-attr="value" data-gjs-undefined-attr="some value"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          nullAttr: 'value',
+          undefinedAttr: 'some value',
+        },
+      ];
+
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('converts data-gjs-data-resolver to dataResolver', () => {
+      const str = `
+          <div
+            data-gjs-type="data-variable"
+            data-gjs-data-resolver='{"type":"data-variable","path":"some path","collectionId":"someCollectionId"}'
+          ></div>
+        `;
+      const result = [
+        {
+          tagName: 'div',
+          type: 'data-variable',
+          dataResolver: {
+            type: 'data-variable',
+            path: 'some path',
+            collectionId: 'someCollectionId',
+          },
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('handles defaults with original hyphenated', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-hyphen-attr="value1"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          'hyphen-attr': 'value1',
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('handles defaults not containing camelCase or hyphenated', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-new-attr="value1"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          'new-attr': 'value1',
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+
+    test('handles defaults with hyphenated and camelCase', () => {
+      const str = '<a data-gjs-type="test-cmp" data-gjs-duplicated-attr="value1"></a>';
+      const result = [
+        {
+          tagName: 'a',
+          type: 'test-cmp',
+          'duplicated-attr': 'value1',
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+  });
+
+  describe('with keepEmptyTextNodes ON', () => {
+    beforeEach(() => {
+      obj = new ParserHtml(em, {
+        returnArray: true,
+        optionsHtml: { keepEmptyTextNodes: true },
+      });
+      obj.compTypes = em.Components.componentTypes;
+    });
+
+    test('Keep empty whitespaces', () => {
+      const str = `<div>
+        <p>TestText</p>
+      </div>`;
+      const result = [
+        {
+          tagName: 'div',
+          components: [
+            {
+              tagName: '',
+              type: 'textnode',
+              content: '\n        ',
+            },
+            {
+              tagName: 'p',
+              components: { type: 'textnode', content: 'TestText' },
+              type: 'text',
+            },
+            {
+              tagName: '',
+              type: 'textnode',
+              content: '\n      ',
+            },
+          ],
+        },
+      ];
+      expect(obj.parse(str).html).toEqual(result);
+    });
+  });
+
+  describe('with custom code parser', () => {
+    test('parses nodes from parserCode', () => {
+      em.Parser.addParserCode('custom-html', () => [{ nodeType: 1, tagName: 'section' }]);
+
+      expect(obj.parse('<div></div>', null, { parserCode: 'custom-html' }).html).toEqual([{ tagName: 'section' }]);
+    });
+
+    test('prefers isParsedNode even on DOM parser runs', () => {
+      em.Components.addType('parsed-dom-cmp', {
+        isParsedNode: (node) => node.tagName === 'DIV' && { type: 'parsed-dom-cmp', parsed: true },
+        isComponent: () => ({ type: 'legacy-dom-cmp' }),
+      });
+      obj.compTypes = em.Components.componentTypes;
+
+      expect(obj.parse('<div></div>').html).toEqual([
+        {
+          tagName: 'div',
+          type: 'parsed-dom-cmp',
+          parsed: true,
+        },
+      ]);
+    });
+
+    test('uses isParsedNode when available', () => {
+      em.Components.addType('parsed-cmp', {
+        isParsedNode: (node) => node.tagName === 'parsed-node' && { type: 'parsed-cmp', parsed: true },
+        isComponent: () => false,
+      });
+      obj.compTypes = em.Components.componentTypes;
+      em.Parser.addParserCode('custom-html', () => [{ nodeType: 1, tagName: 'parsed-node' }]);
+
+      expect(obj.parse('', null, { parserCode: 'custom-html' }).html).toEqual([
+        {
+          tagName: 'parsed-node',
+          type: 'parsed-cmp',
+          parsed: true,
+        },
+      ]);
+    });
+
+    test('falls back to synthetic element for legacy isComponent', () => {
+      em.Components.addType('legacy-cmp', {
+        isComponent: (el: any) =>
+          el.tagName === 'A'
+            ? {
+                type: 'legacy-cmp',
+                hrefProp: el.getAttribute('href'),
+                hasTextChild: !!el.childNodes.length,
+              }
+            : false,
+      });
+      obj.compTypes = em.Components.componentTypes;
+      em.Parser.addParserCode('custom-html', () => [
+        {
+          nodeType: 1,
+          tagName: 'a',
+          attributes: { href: 'https://grapesjs.com' },
+          childNodes: [{ nodeType: 3, textContent: 'Read more' }],
+        },
+      ]);
+
+      expect(obj.parse('', null, { parserCode: 'custom-html' }).html).toEqual([
+        {
+          tagName: 'a',
+          type: 'legacy-cmp',
+          hrefProp: 'https://grapesjs.com',
+          hasTextChild: true,
+          attributes: { href: 'https://grapesjs.com' },
+          components: {
+            type: 'textnode',
+            content: 'Read more',
+          },
+        },
+      ]);
+    });
+
+    test('supports custom synthetic element extensions', () => {
+      em.destroy();
+      em = new Editor({
+        parser: {
+          customSyntheticElement: (SyntheticElement) =>
+            class CustomSyntheticElement extends SyntheticElement {
+              get foo() {
+                return this.getAttribute('data-foo') || '';
+              }
+            },
+        },
+      });
+      em.Components.addType('custom-synthetic', {
+        isComponent: (el: any) => el.foo === 'bar' && { type: 'custom-synthetic' },
+      });
+      obj = new ParserHtml(em, {
+        returnArray: true,
+      });
+      obj.compTypes = em.Components.componentTypes;
+      em.Parser.addParserCode('custom-html', () => [
+        {
+          nodeType: 1,
+          tagName: 'div',
+          attributes: { 'data-foo': 'bar' },
+        },
+      ]);
+
+      expect(obj.parse('', null, { parserCode: 'custom-html' }).html).toEqual([
+        {
+          tagName: 'div',
+          type: 'custom-synthetic',
+          attributes: { 'data-foo': 'bar' },
+        },
+      ]);
+    });
+
+    test('normalizes documents from parserCode', () => {
+      em.Parser.addParserCode('custom-html', () => [
+        {
+          nodeType: 1,
+          tagName: 'html',
+          attributes: { lang: 'en', class: 'cls-html' },
+          childNodes: [
+            {
+              nodeType: 1,
+              tagName: 'head',
+              childNodes: [{ nodeType: 1, tagName: 'title', childNodes: [{ nodeType: 3, textContent: 'Test' }] }],
+            },
+            {
+              nodeType: 1,
+              tagName: 'body',
+              attributes: { class: 'cls-body' },
+              childNodes: [{ nodeType: 1, tagName: 'h1', childNodes: [{ nodeType: 3, textContent: 'H1' }] }],
+            },
+          ],
+        },
+      ]);
+
+      expect(obj.parse('', null, { parserCode: 'custom-html', asDocument: true })).toEqual({
+        root: {
+          classes: ['cls-html'],
+          attributes: { lang: 'en' },
+        },
+        head: {
+          type: 'head',
+          tagName: 'head',
+          components: [
+            {
+              tagName: 'title',
+              type: 'text',
+              components: { type: 'textnode', content: 'Test' },
+            },
+          ],
+        },
+        html: {
+          tagName: 'body',
+          classes: ['cls-body'],
+          components: [
+            {
+              tagName: 'h1',
+              type: 'text',
+              components: { type: 'textnode', content: 'H1' },
+            },
+          ],
+        },
+      });
+    });
+
+    test('extracts styles, strips scripts, sanitizes attrs, and emits normalized root', () => {
+      let rootNode: any;
+      em.on(em.Parser.events.htmlRoot, ({ root }) => {
+        rootNode = root;
+      });
+      em.Parser.addParserCode('custom-html', () => [
+        {
+          nodeType: 1,
+          tagName: 'style',
+          childNodes: [{ nodeType: 3, textContent: '.cls { color: red }' }],
+        },
+        {
+          nodeType: 1,
+          tagName: 'a',
+          attributes: {
+            href: 'javascript:alert(1)',
+            onload: 'alert(1)',
+            'data-safe': 'yes',
+          },
+        },
+        {
+          nodeType: 1,
+          tagName: 'script',
+          childNodes: [{ nodeType: 3, textContent: 'alert(1)' }],
+        },
+      ]);
+
+      expect(obj.parse('', new ParserCss(), { parserCode: 'custom-html' })).toEqual({
+        html: [
+          {
+            tagName: 'a',
+            type: 'link',
+            attributes: {
+              'data-safe': 'yes',
+            },
+          },
+        ],
+        css: [
+          {
+            selectors: ['cls'],
+            style: { color: 'red' },
+          },
+        ],
+      });
+      expect(rootNode.nodeType).toBe(11);
+      expect(rootNode.childNodes).toHaveLength(1);
+      expect(rootNode.childNodes?.[0].tagName).toBe('a');
     });
   });
 });

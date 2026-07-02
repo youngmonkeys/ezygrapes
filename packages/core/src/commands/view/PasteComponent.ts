@@ -1,10 +1,20 @@
-import { isArray, contains } from 'underscore';
+import { contains, isArray } from 'underscore';
 import Component from '../../dom_components/model/Component';
-import { CommandObject } from './CommandAbstract';
+import { ComponentsEvents } from '../../dom_components/types';
 import Editor from '../../editor';
+import type { CommandPublicFnFromHandler } from '../registryHelpers';
+import CommandAbstract from './CommandAbstract';
 
-export default {
-  run(ed, s, opts = {}) {
+export interface PasteComponentOptions {
+  action?: string;
+}
+
+export interface PasteComponentCommandRegistryRun {
+  'core:paste': CommandPublicFnFromHandler<CommandPasteComponent['run']>;
+}
+
+export default class CommandPasteComponent extends CommandAbstract<PasteComponentOptions> {
+  run(ed: Editor, _sender: any, opts: PasteComponentOptions = {}) {
     const em = ed.getModel();
     const clp: Component[] | null = em.get('clipboard');
     const lastSelected = ed.getSelected();
@@ -24,8 +34,6 @@ export default {
             added = doAdd(ed, clp, selected.parent()!, addOpts);
           }
         } else {
-          // Page body is selected
-          // Paste at the end of the body
           const pageBody = em.Pages.getSelected()?.getMainComponent();
           const addOpts = { at: pageBody?.components().length || 0, action: opts.action || 'paste-component' };
 
@@ -33,13 +41,13 @@ export default {
         }
 
         added = isArray(added) ? added : [added];
-        added.forEach((add) => ed.trigger('component:paste', add));
+        added.forEach((add) => ed.trigger(ComponentsEvents.paste, add));
       });
 
       lastSelected.emitUpdate();
     }
-  },
-} as CommandObject;
+  }
+}
 
 function doAdd(ed: Editor, clp: Component[], parent: Component, addOpts: any): Component[] | Component {
   const copyable = clp.filter((cop) => cop.get('copyable'));

@@ -15,22 +15,13 @@
  * })
  * ```
  *
- * Once the editor is instantiated you can use its API and listen to its events. Before using these methods, you should get the module from the instance.
+ * Once the editor is instantiated you can use its API. Before using these methods you should get the module from the instance.
  *
  * ```js
- * // Listen to events
- * editor.on('keymap:add', () => { ... });
- *
- * // Use the API
  * const keymaps = editor.Keymaps;
- * keymaps.add(...);
  * ```
  *
- * ## Available Events
- * * `keymap:add` - New keymap added. The new keyamp object is passed as an argument
- * * `keymap:remove` - Keymap removed. The removed keyamp object is passed as an argument
- * * `keymap:emit` - Some keymap emitted, in arguments you get keymapId, shortcutUsed, Event
- * * `keymap:emit:{keymapId}` - `keymapId` emitted, in arguments you get keymapId, shortcutUsed, Event
+ * {REPLACE_EVENTS}
  *
  * ## Methods
  * * [getConfig](#getconfig)
@@ -44,19 +35,20 @@
  */
 
 import { isFunction, isString } from 'underscore';
-import { hasWin } from '../utils/mixins';
-import keymaster from '../utils/keymaster';
 import { Module } from '../abstract';
 import EditorModel from '../editor/model/Editor';
+import keymaster from '../utils/keymaster';
+import { hasWin } from '../utils/mixins';
 import defConfig, { Keymap, KeymapOptions, KeymapsConfig } from './config';
-
-export type KeymapEvent = 'keymap:add' | 'keymap:remove' | 'keymap:emit' | `keymap:emit:${string}`;
+import { KeymapsEvents } from './types';
+export type { KeymapEvent } from './types';
 
 hasWin() && keymaster.init(window);
 
 export default class KeymapsModule extends Module<KeymapsConfig & { name?: string }> {
   keymaster: any = keymaster;
   keymaps: Record<string, Keymap>;
+  events = KeymapsEvents;
 
   constructor(em: EditorModel) {
     super(em, 'Keymaps', defConfig());
@@ -106,7 +98,7 @@ export default class KeymapsModule extends Module<KeymapsConfig & { name?: strin
    * })
    */
   add(id: Keymap['id'], keys: Keymap['keys'], handler: Keymap['handler'], opts: KeymapOptions = {}) {
-    const { em } = this;
+    const { em, events } = this;
     const cmd = em.Commands;
     const editor = em.getEditor();
     const canvas = em.Canvas;
@@ -125,13 +117,15 @@ export default class KeymapsModule extends Module<KeymapsConfig & { name?: strin
           opts.prevent && canvas.getCanvasView()?.preventDefault(e);
           isFunction(handlerRes) ? handlerRes(editor, 0, opt) : cmd.runCommand(handlerRes, opt);
           const args = [id, h.shortcut, e];
-          em.trigger('keymap:emit', ...args);
-          em.trigger(`keymap:emit:${id}`, ...args);
+          // @ts-ignore
+          em.trigger(events.emit, ...args);
+          // @ts-ignore
+          em.trigger(`${events.emitId}${id}`, ...args);
         }
       },
       undefined,
     );
-    em.trigger('keymap:add', keymap);
+    em.trigger(events.add, keymap);
     return keymap;
   }
 
@@ -167,7 +161,7 @@ export default class KeymapsModule extends Module<KeymapsConfig & { name?: strin
    * // -> {keys, handler};
    */
   remove(id: string) {
-    const { em } = this;
+    const { em, events } = this;
     const keymap = this.get(id);
 
     if (keymap) {
@@ -176,7 +170,7 @@ export default class KeymapsModule extends Module<KeymapsConfig & { name?: strin
         // @ts-ignore
         keymaster.unbind(k.trim());
       });
-      em?.trigger('keymap:remove', keymap);
+      em?.trigger(events.remove, keymap);
       return keymap;
     }
   }

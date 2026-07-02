@@ -155,7 +155,7 @@ describe('Component', () => {
     obj.set({
       bool: true,
       removable: false,
-      string: 'st\'ri"ng',
+      string: 'st\'ri"ng&<>',
       array: [1, 'string', true],
       object: { a: 1, b: 'string', c: true },
       null: null,
@@ -164,12 +164,12 @@ describe('Component', () => {
       zero: 0,
       _private: 'value',
     });
-    let resStr = "st'ri&quot;ng";
+    let resStr = "st'ri&quot;ng&amp;&lt;&gt;";
     let resArr = '[1,&quot;string&quot;,true]';
     let resObj = '{&quot;a&quot;:1,&quot;b&quot;:&quot;string&quot;,&quot;c&quot;:true}';
     let res = `<div data-gjs-removable="false" data-gjs-bool="true" data-gjs-string="${resStr}" data-gjs-array="${resArr}" data-gjs-object="${resObj}" data-gjs-empty="" data-gjs-zero="0"></div>`;
     expect(obj.toHTML({ withProps: true })).toEqual(res);
-    resStr = 'st&apos;ri"ng';
+    resStr = 'st&apos;ri"ng&amp;&lt;&gt;';
     resArr = '[1,"string",true]';
     resObj = '{"a":1,"b":"string","c":true}';
     res = `<div data-gjs-removable="false" data-gjs-bool="true" data-gjs-string='${resStr}' data-gjs-array='${resArr}' data-gjs-object='${resObj}' data-gjs-empty="" data-gjs-zero="0"></div>`;
@@ -273,6 +273,63 @@ describe('Component', () => {
     expect(result.class).toEqual(undefined);
   });
 
+  test('findType returns all matching components in depth-first order', () => {
+    const image1 = new ComponentImage({}, compOpts);
+    const group = new Component({ type: 'group' }, compOpts);
+    const text = new ComponentText({}, compOpts);
+    const image2 = new ComponentImage({}, compOpts);
+
+    group.append([text, image2]);
+    obj.append([image1, group]);
+
+    expect(obj.findType('image')).toEqual([image1, image2]);
+  });
+
+  test('findType accepts a predicate matcher', () => {
+    const target1 = new Component({ type: 'something' }, compOpts);
+    const group = new Component({ type: 'group' }, compOpts);
+    const target2 = new Component({ type: 'something' }, compOpts);
+    const text = new ComponentText({}, compOpts);
+
+    group.append([text, target2]);
+    obj.append([target1, group]);
+
+    expect(obj.findType((cmp) => cmp.getType() === 'something')).toEqual([target1, target2]);
+  });
+
+  test('findType supports max occurrences', () => {
+    const target1 = new Component({ type: 'something' }, compOpts);
+    const group = new Component({ type: 'group' }, compOpts);
+    const target2 = new Component({ type: 'something' }, compOpts);
+    const target3 = new Component({ type: 'something' }, compOpts);
+
+    group.append(target2);
+    obj.append([target1, group, target3]);
+
+    expect(obj.findType((cmp) => cmp.getType() === 'something', { max: 2 })).toEqual([target1, target2]);
+  });
+
+  test('findType stops traversing once max occurrences are reached', () => {
+    const target = new Component({ type: 'something' }, compOpts);
+    const nested = new Component({ type: 'nested' }, compOpts);
+    const sibling = new Component({ type: 'other' }, compOpts);
+    let calls = 0;
+
+    target.append(nested);
+    obj.append([target, sibling]);
+
+    const result = obj.findType(
+      (cmp) => {
+        calls++;
+        return cmp.getType() === 'something';
+      },
+      { max: 1 },
+    );
+
+    expect(result).toEqual([target]);
+    expect(calls).toBe(1);
+  });
+
   test('findFirstType returns first component of specified type', () => {
     const image1 = new ComponentImage({}, compOpts);
     const text = new ComponentText({}, compOpts);
@@ -297,6 +354,47 @@ describe('Component', () => {
   test('findFirstType returns undefined for empty component', () => {
     const result = obj.findFirstType('div');
     expect(result).toBeUndefined();
+  });
+
+  test('findFirstType accepts a predicate matcher', () => {
+    const text = new ComponentText({}, compOpts);
+    const image = new ComponentImage({}, compOpts);
+
+    obj.append([text, image]);
+
+    expect(obj.findFirstType((cmp) => cmp.is('image'))).toBe(image);
+  });
+
+  test('findFirstType returns undefined for a missing predicate match', () => {
+    const text = new ComponentText({}, compOpts);
+
+    obj.append(text);
+
+    expect(obj.findFirstType((cmp) => cmp.is('image'))).toBeUndefined();
+  });
+
+  test('closestType accepts a predicate matcher', () => {
+    const section = new Component({ type: 'section' }, compOpts);
+    const group = new Component({ type: 'group' }, compOpts);
+    const image = new ComponentImage({}, compOpts);
+
+    group.append(image);
+    section.append(group);
+    obj.append(section);
+
+    expect(image.closestType((cmp) => cmp.getType() === 'section')).toBe(section);
+  });
+
+  test('closestType still accepts a string matcher', () => {
+    const section = new Component({ type: 'section' }, compOpts);
+    const group = new Component({ type: 'group' }, compOpts);
+    const image = new ComponentImage({}, compOpts);
+
+    group.append(image);
+    section.append(group);
+    obj.append(section);
+
+    expect(image.closestType('section')).toBe(section);
   });
 
   test('setAttributes', () => {
@@ -436,6 +534,54 @@ describe('Component', () => {
     expect(comp1.getId()).toEqual(comp1Id);
   });
 
+  test('Ensure duplicated component clones also the rules', () => {
+    const idName = 'test';
+    const cmp = dcomp.addComponent(`
+      <div>
+        <div id="${idName}">Comp 1</div>
+      </div>
+      <style>
+        #test { color: red; }
+        @media (max-width: 992px) {
+          #test { color: blue; }
+        }
+      </style>
+    `) as Component;
+    expect(em.getCss()).toBe('#test{color:red;}@media (max-width: 992px){#test{color:blue;}}');
+    cmp.components().resetFromString(`
+      <div id="${idName}">Comp 1</div>
+      <div id="${idName}">Comp 2</div>
+    `);
+    const newId = cmp.components().at(1).getId();
+    expect(em.getCss()).toBe(
+      `#test{color:red;}#${newId}{color:red;}@media (max-width: 992px){#test{color:blue;}#${newId}{color:blue;}}`,
+    );
+  });
+
+  test('Ensure duplicated component clones the rules also cross components', () => {
+    const idName = 'test';
+    const cmp = dcomp.addComponent(`
+      <div>
+        <div id="${idName}">Comp 1</div>
+      </div>
+      <style>
+        #test { color: red; }
+        @media (max-width: 992px) {
+          #test { color: blue; }
+        }
+      </style>
+    `) as Component;
+    const cmp2 = dcomp.addComponent(`<div>Text</div>`) as Component;
+    cmp2.components().resetFromString(`<div id="${idName}">Comp 2</div>`);
+    const newId = cmp2.components().at(0).getId();
+    expect(em.getHtml()).toBe(
+      `<body><div><div id="test">Comp 1</div></div><div><div id="test-2">Comp 2</div></div></body>`,
+    );
+    expect(em.getCss()).toBe(
+      `#test{color:red;}#${newId}{color:red;}@media (max-width: 992px){#test{color:blue;}#${newId}{color:blue;}}`,
+    );
+  });
+
   test('Ability to stop/change propagation chain', () => {
     obj.append({
       removable: false,
@@ -497,7 +643,7 @@ describe('Component', () => {
       },
     });
 
-    expect(() => new ExtendedComponent({}, compOpts)).not.toThrowError();
+    expect(() => new ExtendedComponent({}, compOpts)).not.toThrow();
   });
 });
 

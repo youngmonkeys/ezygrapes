@@ -22,8 +22,8 @@
  * ## Available Events
  * * `component:create` - Component is created (only the model, is not yet mounted in the canvas), called after the init() method
  * * `component:mount` - Component is mounted to an element and rendered in canvas
- * * `component:add` - Triggered when a new component is added to the editor, the model is passed as an argument to the callback
- * * `component:remove` - Triggered when a component is removed, the model is passed as an argument to the callback
+ * * `component:add` - Triggered when a component is added to the editor. The callback receives the model and the options object. This can also be triggered on component moves and clones, so you can check `options.action` (`add-component`, `move-component`, `clone-component`) to distinguish the case
+ * * `component:remove` - Triggered when a component is removed from the editor. This can also happen as part of a component move
  * * `component:remove:before` - Triggered before the remove of the component, the model, remove function (if aborted via options, with this function you can complete the remove) and options (use options.abort = true to prevent remove), are passed as arguments to the callback
  * * `component:clone` - Triggered when a component is cloned, the new model is passed as an argument to the callback
  * * `component:update` - Triggered when a component is updated (moved, styled, etc.), the model is passed as an argument to the callback
@@ -55,13 +55,23 @@
  */
 import { debounce, isArray, isEmpty, isFunction, isString, isSymbol, result } from 'underscore';
 import { ItemManagerModule } from '../abstract/Module';
+import { BlockProperties } from '../block_manager/model/Block';
 import { ObjectAny } from '../common';
+import ComponentDataVariable from '../data_sources/model/ComponentDataVariable';
+import ComponentDataCondition from '../data_sources/model/conditional_variables/ComponentDataCondition';
+import ComponentDataOutput from '../data_sources/model/conditional_variables/ComponentDataOutput';
+import ComponentDataCollection from '../data_sources/model/data_collection/ComponentDataCollection';
+import { DataComponentTypes } from '../data_sources/types';
+import ComponentDataCollectionView from '../data_sources/view/ComponentDataCollectionView';
+import ComponentDataConditionView from '../data_sources/view/ComponentDataConditionView';
+import ComponentDataVariableView from '../data_sources/view/ComponentDataVariableView';
 import EditorModel from '../editor/model/Editor';
 import { isComponent } from '../utils/mixins';
 import defConfig, { DomComponentsConfig } from './config/config';
 import Component, { IComponent, keyUpdate, keyUpdateInside } from './model/Component';
 import ComponentComment from './model/ComponentComment';
 import ComponentFrame from './model/ComponentFrame';
+import ComponentHead, { type as typeHead } from './model/ComponentHead';
 import ComponentImage from './model/ComponentImage';
 import ComponentLabel from './model/ComponentLabel';
 import ComponentLink from './model/ComponentLink';
@@ -81,12 +91,25 @@ import ComponentVideo from './model/ComponentVideo';
 import ComponentWrapper from './model/ComponentWrapper';
 import Components from './model/Components';
 import {
+  detachSymbolInstance,
+  getSymbolInstances,
+  getSymbolMain,
+  getSymbolsToUpdate,
+  getSymbolTop,
+  isSymbol as isSymbolComponent,
+  isSymbolInstance,
+  isSymbolMain,
+  isSymbolRoot,
+} from './model/SymbolUtils';
+import Symbols from './model/Symbols';
+import {
   AddComponentsOption,
   ComponentAdd,
   ComponentDefinition,
   ComponentDefinitionDefined,
   ComponentStackItem,
 } from './model/types';
+import { ComponentsEvents, SymbolInfo } from './types';
 import ComponentCommentView from './view/ComponentCommentView';
 import ComponentFrameView from './view/ComponentFrameView';
 import ComponentImageView from './view/ComponentImageView';
@@ -107,54 +130,10 @@ import ComponentVideoView from './view/ComponentVideoView';
 import ComponentView, { IComponentView } from './view/ComponentView';
 import ComponentWrapperView from './view/ComponentWrapperView';
 import ComponentsView from './view/ComponentsView';
-import ComponentHead, { type as typeHead } from './model/ComponentHead';
-import {
-  getSymbolMain,
-  getSymbolInstances,
-  getSymbolsToUpdate,
-  isSymbolMain,
-  isSymbolInstance,
-  detachSymbolInstance,
-  isSymbolRoot,
-  isSymbol as isSymbolComponent,
-  getSymbolTop,
-} from './model/SymbolUtils';
-import { ComponentsEvents, SymbolInfo } from './types';
-import Symbols from './model/Symbols';
-import { BlockProperties } from '../block_manager/model/Block';
-import ComponentDataVariable from '../data_sources/model/ComponentDataVariable';
-import ComponentDataVariableView from '../data_sources/view/ComponentDataVariableView';
-import { DataVariableType } from '../data_sources/model/DataVariable';
-import { DataConditionType } from '../data_sources/model/conditional_variables/DataCondition';
-import ComponentDataConditionView from '../data_sources/view/ComponentDataConditionView';
-import ComponentDataCollection from '../data_sources/model/data_collection/ComponentDataCollection';
-import { DataCollectionItemType, DataCollectionType } from '../data_sources/model/data_collection/constants';
-import ComponentDataCollectionView from '../data_sources/view/ComponentDataCollectionView';
-import ComponentDataCondition from '../data_sources/model/conditional_variables/ComponentDataCondition';
-import {
-  DataConditionIfFalseType,
-  DataConditionIfTrueType,
-} from '../data_sources/model/conditional_variables/constants';
-import ComponentDataOutput from '../data_sources/model/conditional_variables/ComponentDataOutput';
+import { ParseNodeOptions } from '../parser/config/config';
+import { ParsedNode } from '../parser/types';
 
-export type ComponentEvent =
-  | 'component:create'
-  | 'component:mount'
-  | 'component:add'
-  | 'component:remove'
-  | 'component:remove:before'
-  | 'component:clone'
-  | 'component:update'
-  | 'component:styleUpdate'
-  | 'component:selected'
-  | 'component:deselected'
-  | 'component:toggled'
-  | 'component:type:add'
-  | 'component:type:update'
-  | 'component:drag:start'
-  | 'component:drag'
-  | 'component:drag:end'
-  | 'component:resize';
+export type { ComponentEvent } from './types';
 
 export interface ComponentModelDefinition extends IComponent {
   defaults?: ComponentDefinition | (() => ComponentDefinition);
@@ -167,6 +146,7 @@ export interface ComponentViewDefinition extends IComponentView {
 
 export interface AddComponentTypeOptions {
   isComponent?: (el: HTMLElement) => boolean | ComponentDefinitionDefined | undefined;
+  isParsedNode?: (node: ParsedNode, opts?: ParseNodeOptions) => boolean | ComponentDefinitionDefined | undefined;
   model?: Partial<ComponentModelDefinition> & ThisType<ComponentModelDefinition & Component>;
   view?: Partial<ComponentViewDefinition> & ThisType<ComponentViewDefinition & ComponentView>;
   block?: boolean | Partial<BlockProperties>;
@@ -202,32 +182,32 @@ export interface CanMoveResult {
 export default class ComponentManager extends ItemManagerModule<DomComponentsConfig, any> {
   componentTypes: ComponentStackItem[] = [
     {
-      id: DataCollectionItemType,
+      id: DataComponentTypes.collectionItem,
       model: ComponentDataOutput,
       view: ComponentView,
     },
     {
-      id: DataConditionIfTrueType,
+      id: DataComponentTypes.conditionTrue,
       model: ComponentDataOutput,
       view: ComponentView,
     },
     {
-      id: DataConditionIfFalseType,
+      id: DataComponentTypes.conditionFalse,
       model: ComponentDataOutput,
       view: ComponentView,
     },
     {
-      id: DataCollectionType,
+      id: DataComponentTypes.collection,
       model: ComponentDataCollection,
       view: ComponentDataCollectionView,
     },
     {
-      id: DataConditionType,
+      id: DataComponentTypes.condition,
       model: ComponentDataCondition,
       view: ComponentDataConditionView,
     },
     {
-      id: DataVariableType,
+      id: DataComponentTypes.variable,
       model: ComponentDataVariable,
       view: ComponentDataVariableView,
     },
@@ -566,7 +546,17 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
    */
   addType(type: string, methods: AddComponentTypeOptions) {
     const { em } = this;
-    const { model = {}, view = {}, isComponent, extend, extendView, extendFn = [], extendFnView = [], block } = methods;
+    const {
+      model = {},
+      view = {},
+      isComponent,
+      isParsedNode,
+      extend,
+      extendView,
+      extendFn = [],
+      extendFnView = [],
+      block,
+    } = methods;
     const compType = this.getType(type);
     const extendType = this.getType(extend!);
     const extendViewType = this.getType(extendView!);
@@ -603,6 +593,7 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
         {
           typeExtends,
           isComponent: compType && !extendType && !isComponent ? modelToExt.isComponent : isComponent || (() => 0),
+          isParsedNode: compType && !extendType && !isParsedNode ? modelToExt.isParsedNode : isParsedNode || undefined,
         },
       );
       // Reassign the defaults getter to the model
@@ -640,8 +631,8 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
       em.Blocks.add(blockProps.id || type, blockProps);
     }
 
-    const event = `component:type:${compType ? 'update' : 'add'}`;
-    em?.trigger(event, compType || methods);
+    const event = compType ? ComponentsEvents.typeUpdate : ComponentsEvents.typeAdd;
+    em?.trigger(event, (compType || methods) as any);
 
     return this;
   }
@@ -693,7 +684,7 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
       component.set({
         status: 'selected',
       });
-      ['component:selected', 'component:toggled'].forEach((event) => this.em.trigger(event, component, opts));
+      [ComponentsEvents.selected, ComponentsEvents.toggled].forEach((event) => this.em.trigger(event, component, opts));
     }
   }
 
@@ -704,7 +695,9 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
         status: '',
         state: '',
       });
-      ['component:deselected', 'component:toggled'].forEach((event) => this.em.trigger(event, component, opts));
+      [ComponentsEvents.deselected, ComponentsEvents.toggled].forEach((event) =>
+        this.em.trigger(event, component, opts),
+      );
     }
   }
 
@@ -781,7 +774,7 @@ export default class ComponentManager extends ItemManagerModule<DomComponentsCon
 
     const symbol = component.clone({ symbol: true });
     isSymbolMain(symbol) && this.symbols.add(symbol);
-    this.em.trigger('component:toggled');
+    this.em.trigger(ComponentsEvents.toggled);
 
     return symbol;
   }

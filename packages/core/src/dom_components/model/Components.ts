@@ -1,5 +1,5 @@
 import { isEmpty, isArray, isString, isFunction, each, includes, extend, flatten, keys } from 'underscore';
-import Component from './Component';
+import Component, { SetAttrOptions } from './Component';
 import { AddOptions, Collection } from '../../common';
 import { DomComponentsConfig } from '../config/config';
 import EditorModel from '../../editor/model/Editor';
@@ -17,6 +17,23 @@ import ComponentText from './ComponentText';
 import ComponentWrapper from './ComponentWrapper';
 import { ComponentsEvents, ParseStringOptions } from '../types';
 import { isSymbolInstance, isSymbolRoot, updateSymbolComps } from './SymbolUtils';
+import type { DataBindingImportPolicy } from '../../data_sources/types';
+
+export interface ResetCommonUpdateProps {
+  component: Component;
+  item: ComponentDefinitionDefined;
+  options: SetAttrOptions;
+}
+
+export interface ResetFromStringOptions {
+  visitedCmps?: Record<string, ComponentDefinitionDefined[]>;
+  keepIds?: string[];
+  dataBindingImportPolicy?: DataBindingImportPolicy;
+  updateOptions?: {
+    onAttributes?: (props: ResetCommonUpdateProps & { attributes: Record<string, any> }) => void;
+    onStyle?: (props: ResetCommonUpdateProps & { style: Record<string, any> }) => void;
+  };
+}
 
 export const getComponentIds = (cmp?: Component | Component[] | Components, res: string[] = []) => {
   if (!cmp) return [];
@@ -35,6 +52,7 @@ const getComponentsFromDefs = (
 ) => {
   opts.visitedCmps = opts.visitedCmps || {};
   const { visitedCmps } = opts;
+  const updateOptions = (opts.updateOptions as ResetFromStringOptions['updateOptions']) || {};
   const itms = isArray(items) ? items : [items];
 
   return itms.map((item) => {
@@ -50,10 +68,22 @@ const getComponentsFromDefs = (
         // Update the component if exists already
         if (all[id]) {
           result = all[id] as any;
-          const cmp = result as unknown as Component;
-          tagName && cmp.set({ tagName }, { ...opts, silent: true });
-          keys(restAttr).length && cmp.addAttributes(restAttr, { ...opts });
-          keys(style).length && cmp.addStyle(style, opts);
+          const { onAttributes, onStyle } = updateOptions;
+          const component = result as unknown as Component;
+          const htmlImportOpts = { ...opts, parsedImportSource: 'html' as const };
+          tagName && component.set({ tagName }, { ...htmlImportOpts, silent: true });
+
+          if (onAttributes) {
+            onAttributes({ item, component, attributes: restAttr, options: htmlImportOpts });
+          } else if (keys(restAttr).length) {
+            component.addAttributes(restAttr, htmlImportOpts);
+          }
+
+          if (onStyle) {
+            onStyle({ item, component, style, options: htmlImportOpts });
+          } else if (keys(style).length) {
+            component.addStyle(style, htmlImportOpts);
+          }
         }
       } else {
         // Found another component with the same ID, treat it as a new component
@@ -131,37 +161,17 @@ Component> {
     models.each((model) => this.onAdd(model));
   }
 
-  resetFromString(input = '', opts: { visitedCmps?: Record<string, Component[]>; keepIds?: string[] } = {}) {
+  resetFromString(input = '', opts: ResetFromStringOptions = {}) {
     opts.keepIds = getComponentIds(this);
     const { domc, em, parent } = this;
-    const cssc = em?.Css;
     const allByID = domc?.allById() || {};
-    const parsed = this.parseString(input, opts);
-    const newCmps = getComponentsFromDefs(parsed, allByID, opts);
-    const { visitedCmps = {} } = opts;
-
-    // Clone styles for duplicated components
-    Object.keys(visitedCmps).forEach((id) => {
-      const cmps = visitedCmps[id];
-      if (cmps.length) {
-        // Get all available rules of the component
-        const rulesToClone = cssc?.getRules(`#${id}`) || [];
-
-        if (rulesToClone.length) {
-          cmps.forEach((cmp) => {
-            rulesToClone.forEach((rule) => {
-              const newRule = rule.clone();
-              // @ts-ignore
-              newRule.set('selectors', [`#${cmp.attributes.id}`]);
-              cssc!.getAll().add(newRule);
-            });
-          });
-        }
-      }
-    });
+    const parsed = this.parseString(input, { ...opts, cloneRules: true });
+    const fromDefOpts = { skipViewUpdate: true, ...opts };
+    const newCmps = getComponentsFromDefs(parsed, allByID, fromDefOpts);
+    Components.cloneCssRules(em, fromDefOpts.visitedCmps);
 
     this.reset(newCmps, opts as any);
-    em?.trigger('component:content', parent, opts, input);
+    em?.trigger(ComponentsEvents.content, parent, opts, input);
     (parent as ComponentText).__checkInnerChilds?.();
   }
 
@@ -282,21 +292,24 @@ Component> {
       const { components: bodyCmps = [], ...restBody } = (parsed.html as ComponentDefinitionDefined) || {};
       const { components: headCmps, ...restHead } = parsed.head || {};
       components = bodyCmps!;
-      root.set(restBody as any, opt);
-      root.head.set(restHead as any, opt);
-      root.head.components(headCmps, opt);
-      root.docEl.set(parsed.root as any, opt);
-      root.set({ doctype: parsed.doctype });
+      const htmlImportOpts = { ...opt, parsedImportSource: 'html' as const };
+      root.set(restBody as any, htmlImportOpts);
+      root.head.set(restHead as any, htmlImportOpts);
+      root.head.components(headCmps, htmlImportOpts);
+      root.docEl.set(parsed.root as any, htmlImportOpts);
+      root.set({ doctype: parsed.doctype }, htmlImportOpts);
     }
 
     // We need this to avoid duplicate IDs
-    Component.checkId(components, parsed.css, domc!.componentsById, opt);
+    const result = Component.checkId(components, parsed.css, domc!.componentsById, opt);
+    opt.cloneRules && Components.cloneCssRules(em, result.updatedIds);
 
     if (parsed.css && cssc && !opt.temporary) {
       const { at, ...optsToPass } = opt;
       cssc.addCollection(parsed.css, {
         ...optsToPass,
         extend: 1,
+        parsedImportSource: 'css',
       });
     }
 
@@ -314,7 +327,9 @@ Component> {
     if (isString(models)) {
       models = this.parseString(models, opt)!;
     } else if (isArray(models)) {
-      models.forEach((item: string, index: number) => {
+      // Avoid "Cannot assign to read only property '0' of object '[object Array]'
+      models = [...models];
+      (models as any).forEach((item: string, index: number) => {
         if (isString(item)) {
           const nodes = this.parseString(item, opt);
           (models as any)[index] = isArray(nodes) && !nodes.length ? null : nodes;
@@ -389,15 +404,19 @@ Component> {
 
   onAdd(model: Component, c?: any, opts: { temporary?: boolean } = {}) {
     const { domc, em } = this;
-    const style = model.getStyle();
-    const avoidInline = em && em.getConfig().avoidInlineStyle;
-    domc && domc.Component.ensureInList(model);
+    const avoidInline = em.config.avoidInlineStyle;
+    const allById = domc?.allById();
+    allById?.[model.getId()] !== model && domc?.Component.ensureInList(model);
 
-    if (!isEmpty(style) && !avoidInline && em && em.getConfig().forceClass && !opts.temporary) {
-      const name = model.cid;
-      em.Css.setClassRule(name, style);
-      model.setStyle({});
-      model.addClass(name);
+    if (!avoidInline && em.config.forceClass && !opts.temporary) {
+      const style = model.getStyle();
+
+      if (!isEmpty(style)) {
+        const name = model.cid;
+        em.Css.setClassRule(name, style);
+        model.setStyle({});
+        model.addClass(name);
+      }
     }
 
     model.__postAdd({ recursive: true });
@@ -413,5 +432,27 @@ Component> {
         domc.symbols.__trgEvent(domc.events.symbolInstanceAdd, { component: model }, true);
       }
     }
+  }
+
+  static cloneCssRules(em: EditorModel, cmpsMap: Record<string, ComponentDefinitionDefined[]> = {}) {
+    const { Css } = em;
+    Object.keys(cmpsMap).forEach((id) => {
+      const cmps = cmpsMap[id];
+      if (cmps.length) {
+        // Get all available rules of the component
+        const rulesToClone = (Css.getRules(`#${id}`) || []).filter((rule) => !isEmpty(rule.attributes.style));
+
+        if (rulesToClone.length) {
+          const rules = Css.getAll();
+          cmps.forEach((cmp) => {
+            rulesToClone.forEach((rule) => {
+              const newRule = rule.clone();
+              newRule.set('selectors', [`#${cmp.attributes.id}`] as any);
+              rules.add(newRule);
+            });
+          });
+        }
+      }
+    });
   }
 }

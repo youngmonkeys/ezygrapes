@@ -1,7 +1,28 @@
-import { ItemsByCategory } from '../abstract/ModuleCategory';
+import BlockManager from '.';
+import Category, { CategoryProperties, ItemsByCategory } from '../abstract/ModuleCategory';
+import {
+  AddOptions,
+  EventCallbackAdd,
+  EventCallbackAll,
+  EventCallbackRemove,
+  EventCallbackRemoveBefore,
+  EventCallbackUpdate,
+} from '../common';
+import Component from '../dom_components/model/Component';
 import Block from './model/Block';
 
 export interface BlocksByCategory extends ItemsByCategory<Block> {}
+
+export interface BlocksCustomData {
+  bm: BlockManager;
+  blocks: Block[];
+  container: HTMLElement | undefined;
+  dragStart: (block: Block, ev?: Event) => void;
+  drag: (ev: Event) => void;
+  dragStop: (cancel?: boolean) => void;
+}
+
+export type BlockEvent = `${BlocksEvents}`;
 
 /**{START_EVENTS}*/
 export enum BlocksEvents {
@@ -76,6 +97,19 @@ export enum BlocksEvents {
   all = 'block',
 }
 /**{END_EVENTS}*/
+
+export interface BlocksEventCallback {
+  [BlocksEvents.add]: EventCallbackAdd<Block>;
+  [BlocksEvents.remove]: EventCallbackRemove<Block>;
+  [BlocksEvents.removeBefore]: EventCallbackRemoveBefore<Block>;
+  [BlocksEvents.update]: EventCallbackUpdate<Block>;
+  [BlocksEvents.dragStart]: [Block, DragEvent?];
+  [BlocksEvents.drag]: [Block, DragEvent?];
+  [BlocksEvents.dragEnd]: [Component | undefined, Block];
+  [BlocksEvents.categoryUpdate]: [{ category: Category; changes: Partial<CategoryProperties>; options: AddOptions }];
+  [BlocksEvents.custom]: [BlocksCustomData];
+  [BlocksEvents.all]: EventCallbackAll<BlockEvent, Block>;
+}
 
 // need this to avoid the TS documentation generator to break
 export default BlocksEvents;

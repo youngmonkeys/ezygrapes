@@ -1,5 +1,6 @@
 import { ObjectAny } from '../../common';
 import { isDef, isEmptyObj, toLowerCase } from '../../utils/mixins';
+import { ComponentsEvents } from '../types';
 import ComponentImage from './ComponentImage';
 import { ComponentOptions, ComponentProperties } from './types';
 
@@ -8,6 +9,7 @@ const yt = 'yt';
 const vi = 'vi';
 const ytnc = 'ytnc';
 const defProvider = 'so';
+export const YT_REFERRER_POLICY = 'strict-origin-when-cross-origin';
 
 const hasParam = (value: string) => value && value !== '0';
 
@@ -26,7 +28,7 @@ export default class ComponentVideo extends ComponentImage {
       viUrl: 'https://player.vimeo.com/video/',
       loop: false,
       poster: '',
-      muted: 0,
+      muted: false,
       autoplay: false,
       controls: true,
       color: '',
@@ -50,17 +52,36 @@ export default class ComponentVideo extends ComponentImage {
 
   updatePropsFromAttr() {
     if (this.get('provider') === defProvider) {
-      const { controls, autoplay, loop } = this.get('attributes')!;
+      const { controls, autoplay, loop, muted } = this.get('attributes')!;
       const toUp: ObjectAny = {};
 
       if (isDef(controls)) toUp.controls = !!controls;
       if (isDef(autoplay)) toUp.autoplay = !!autoplay;
       if (isDef(loop)) toUp.loop = !!loop;
+      if (isDef(muted)) toUp.muted = !!muted; // Update for muted
 
       if (!isEmptyObj(toUp)) {
         this.set(toUp);
       }
     }
+  }
+
+  updateProviderAttributes() {
+    const { provider, attributes = {} } = this.attributes;
+    const attrs = { ...attributes };
+    let hasChanges = false;
+
+    if (provider === yt || provider === ytnc) {
+      if (!isDef(attrs.referrerpolicy)) {
+        attrs.referrerpolicy = YT_REFERRER_POLICY;
+        hasChanges = true;
+      }
+    } else if (attrs.referrerpolicy === YT_REFERRER_POLICY) {
+      delete attrs.referrerpolicy;
+      hasChanges = true;
+    }
+
+    hasChanges && this.setAttributes(attrs);
   }
 
   /**
@@ -86,10 +107,11 @@ export default class ComponentVideo extends ComponentImage {
         traits = this.getSourceTraits();
     }
 
+    this.updateProviderAttributes();
     this.set({ tagName }, { silent: true }); // avoid break in view
     // @ts-ignore
     this.set({ traits });
-    em.get('ready') && em.trigger('component:toggled');
+    em.get('ready') && em.trigger(ComponentsEvents.toggled);
   }
 
   /**
@@ -111,6 +133,7 @@ export default class ComponentVideo extends ComponentImage {
         hasParam(qr.color) && this.set('color', qr.color);
         qr.rel === '0' && this.set('rel', 0);
         qr.modestbranding === '1' && this.set('modestbranding', 1);
+        qr.muted === '1' && this.set('muted', true);
         break;
       default:
     }
@@ -157,6 +180,7 @@ export default class ComponentVideo extends ComponentImage {
         attr.loop = !!this.get('loop');
         attr.autoplay = !!this.get('autoplay');
         attr.controls = !!this.get('controls');
+        attr.muted = !!this.get('muted');
     }
 
     return attr;
@@ -206,6 +230,7 @@ export default class ComponentVideo extends ComponentImage {
       this.getAutoplayTrait(),
       this.getLoopTrait(),
       this.getControlsTrait(),
+      this.getMutedTrait(),
     ];
   }
   /**
@@ -237,6 +262,7 @@ export default class ComponentVideo extends ComponentImage {
         name: 'modestbranding',
         changeProp: true,
       },
+      this.getMutedTrait(),
     ];
   }
 
@@ -262,6 +288,7 @@ export default class ComponentVideo extends ComponentImage {
       },
       this.getAutoplayTrait(),
       this.getLoopTrait(),
+      this.getMutedTrait(),
     ];
   }
 
@@ -308,6 +335,20 @@ export default class ComponentVideo extends ComponentImage {
   }
 
   /**
+   * Return object trait
+   * @return {Object}
+   * @private
+   */
+  getMutedTrait() {
+    return {
+      type: 'checkbox',
+      label: 'Muted',
+      name: 'muted',
+      changeProp: true,
+    };
+  }
+
+  /**
    * Returns url to youtube video
    * @return {string}
    * @private
@@ -318,10 +359,9 @@ export default class ComponentVideo extends ComponentImage {
     const list = this.get('list');
     url += id + (id.indexOf('?') < 0 ? '?' : '');
     url += list ? `&list=${list}` : '';
-    url += this.get('autoplay') ? '&autoplay=1&mute=1' : '';
+    url += this.get('autoplay') ? '&autoplay=1' : '';
+    url += this.get('muted') ? '&mute=1' : '';
     url += !this.get('controls') ? '&controls=0&showinfo=0' : '';
-    // Loop works only with playlist enabled
-    // https://stackoverflow.com/questions/25779966/youtube-iframe-loop-doesnt-work
     url += this.get('loop') ? `&loop=1&playlist=${id}` : '';
     url += this.get('rel') ? '' : '&rel=0';
     url += this.get('modestbranding') ? '&modestbranding=1' : '';
@@ -347,7 +387,8 @@ export default class ComponentVideo extends ComponentImage {
   getVimeoSrc() {
     let url = this.get('viUrl') as string;
     url += this.get('videoId') + '?';
-    url += this.get('autoplay') ? '&autoplay=1&muted=1' : '';
+    url += this.get('autoplay') ? '&autoplay=1' : '';
+    url += this.get('muted') ? '&muted=1' : '';
     url += this.get('loop') ? '&loop=1' : '';
     url += !this.get('controls') ? '&title=0&portrait=0&badge=0' : '';
     url += this.get('color') ? '&color=' + this.get('color') : '';
@@ -355,7 +396,8 @@ export default class ComponentVideo extends ComponentImage {
   }
 
   static isComponent(el: HTMLVideoElement) {
-    const { tagName, src } = el;
+    const { tagName } = el;
+    const src = el.getAttribute?.('src') || '';
     const isYtProv = /youtube\.com\/embed/.test(src);
     const isYtncProv = /youtube-nocookie\.com\/embed/.test(src);
     const isViProv = /player\.vimeo\.com\/video/.test(src);

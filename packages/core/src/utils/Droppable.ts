@@ -1,12 +1,13 @@
 import { bindAll, indexOf } from 'underscore';
 import CanvasModule from '../canvas';
+import CanvasEvents from '../canvas/types';
 import { ObjectStrings } from '../common';
+import Component from '../dom_components/model/Component';
 import EditorModel from '../editor/model/Editor';
 import { getDocumentScroll, off, on } from './dom';
-import { DragDirection, DragSource } from './sorter/types';
 import CanvasNewComponentNode from './sorter/CanvasNewComponentNode';
 import ComponentSorter from './sorter/ComponentSorter';
-import Component from '../dom_components/model/Component';
+import { DragDirection, DraggableContent, DragSource } from './sorter/types';
 
 // TODO move in sorter
 type SorterOptions = {
@@ -94,7 +95,7 @@ export default class Droppable {
     this.counter = 0;
     dragStop && dragStop(cancel || !this.over);
     this.__customTglEff(false);
-    em.trigger('canvas:dragend', ev);
+    em.trigger(CanvasEvents.dragEnd, ev);
   }
 
   handleDragLeave(ev: Event) {
@@ -187,9 +188,10 @@ export default class Droppable {
         sorter.eventHandlers.legacyOnEnd = sorterOptions.legacyOnEnd;
         sorter.containerContext.customTarget = sorterOptions.customTarget;
       }
-      let dropModel = this.getTempDropModel(content);
-      const el = dropModel.view?.el;
-      const sources = el ? [{ element: el, dragSource: dragSourceOrigin }] : [];
+      const shallowCmp = em.Components.getShallowWrapper();
+      const model = shallowCmp?.append(content, { temporary: true })[0];
+      const element = model?.getEl();
+      const sources = [{ element, dragSource: { model, ...dragSourceOrigin } }];
       sorter.startSort(sources);
       this.sorter = sorter;
       this.draggedNode = sorter.sourceNodes?.[0];
@@ -203,26 +205,7 @@ export default class Droppable {
     }
 
     this.dragStop = dragStop;
-    em.trigger('canvas:dragenter', dt, content);
-  }
-
-  /**
-   * Generates a temporary model of the content being dragged for use with the sorter.
-   * @returns The temporary model representing the dragged content.
-   */
-  private getTempDropModel(content?: any) {
-    const comps = this.em.Components.getComponents();
-    const opts = {
-      avoidChildren: 1,
-      avoidStore: 1,
-      avoidUpdateStyle: 1,
-    };
-    const tempModel = comps.add(content, { ...opts, temporary: true });
-    let dropModel = comps.remove(tempModel, { ...opts, temporary: true } as any);
-    // @ts-ignore
-    dropModel = dropModel instanceof Array ? dropModel[0] : dropModel;
-    dropModel.view?.$el.data('model', dropModel);
-    return dropModel;
+    em.trigger(CanvasEvents.dragEnter, dt, content);
   }
 
   handleDragEnd(model: any, dt: any) {
@@ -230,7 +213,7 @@ export default class Droppable {
     this.over = false;
     if (model) {
       em.set('dragResult', model);
-      em.trigger('canvas:drop', dt, model);
+      em.trigger(CanvasEvents.drop, dt, model);
     }
     em.runDefault({ preserveSelected: 1 });
   }
@@ -241,7 +224,7 @@ export default class Droppable {
    */
   handleDragOver(ev: Event) {
     ev.preventDefault();
-    this.em.trigger('canvas:dragover', ev);
+    this.em.trigger(CanvasEvents.dragOver, ev);
   }
 
   /**
@@ -251,7 +234,7 @@ export default class Droppable {
   handleDrop(ev: Event | DragEvent) {
     ev.preventDefault();
     const dt = (ev as DragEvent).dataTransfer;
-    const content = this.getContentByData(dt).content;
+    const content = this.getContentByData(dt!).content || '';
     if (this.draggedNode) {
       this.draggedNode.content = content;
     }
@@ -259,12 +242,12 @@ export default class Droppable {
     this.endDrop(!content, ev);
   }
 
-  getContentByData(dt: any) {
+  getContentByData(dt?: DataTransfer) {
     const em = this.em;
-    const types = dt && dt.types;
-    const files = (dt && dt.files) || [];
+    const types = dt?.types || [];
+    const files = dt?.files || [];
     const dragSource: DragSource<Component> = em.get('dragSource');
-    let content = dt && dt.getData('text');
+    let content: DraggableContent['content'] = dt?.getData('text') || '';
 
     if (files.length) {
       content = [];
@@ -298,9 +281,13 @@ export default class Droppable {
       content = `<div>${content}</div>`;
     }
 
-    const result = { content };
-    em.trigger('canvas:dragdata', dt, result);
-
+    const result = {
+      content,
+      setContent(content: DraggableContent['content']) {
+        result.content = content;
+      },
+    };
+    em.trigger(CanvasEvents.dragData, dt, result);
     return result;
   }
 }

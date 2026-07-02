@@ -42,6 +42,15 @@ editor.on('load', () => { ... });
 editor.on('project:load', ({ project, initial }) => { ... });
 ```
 
+* `project:loaded` Similar to `project:load`, but triggers only if the project is loaded successfully.
+
+```javascript
+editor.on('project:loaded', ({ project, initial }) => { ... });
+
+// Loading an empty project, won't trigger this event.
+editor.loadProjectData({});
+```
+
 * `project:get` Event triggered on request of the project data. This can be used to extend the project with custom data.
 
 ```javascript
@@ -166,6 +175,8 @@ Returns CSS built inside canvas
     *   `opts.avoidProtected` **[Boolean][17]** Don't include protected CSS (optional, default `false`)
     *   `opts.onlyMatched` **[Boolean][17]** Return only rules matched by the passed component. (optional, default `false`)
     *   `opts.keepUnusedStyles` **[Boolean][17]** Force keep all defined rules. Toggle on in case output looks different inside/outside of the editor. (optional, default `false`)
+    *   `opts.allowEmpty` **[Boolean][17]** Include rules with empty style declarations. (optional, default `false`)
+    *   `opts.withNested` **[Boolean][17]** Include nested CSS rules. (optional, default `false`)
 
 Returns **([String][18] | [Array][19]\<CssRule>)** CSS string or array of CssRules
 
@@ -433,7 +444,8 @@ Execute command
 ### Parameters
 
 *   `id` **[string][18]** Command ID
-*   `options` **[Object][16]** Custom options (optional, default `{}`)
+*   `args` **...CommandRunArgs\<TId>**&#x20;
+*   `options` **[Object][16]** Custom options
 
 ### Examples
 
@@ -450,7 +462,8 @@ Stop the command if stop method was provided
 ### Parameters
 
 *   `id` **[string][18]** Command ID
-*   `options` **[Object][16]** Custom options (optional, default `{}`)
+*   `args` **...CommandStopArgs\<TId>**&#x20;
+*   `options` **[Object][16]** Custom options
 
 ### Examples
 
@@ -516,6 +529,7 @@ Load data from the JSON project
 ### Parameters
 
 *   `data` **[Object][16]** Project to load
+*   `options` **[Object][16]?** Custom options that could be passed to the project load events. (optional, default `{}`)
 
 ### Examples
 
@@ -722,7 +736,7 @@ Trigger event
 ### Parameters
 
 *   `event` **[string][18]** Event to trigger
-*   `args` **...[Array][19]\<any>**&#x20;
+*   `args` **...any**&#x20;
 
 Returns **this**&#x20;
 
