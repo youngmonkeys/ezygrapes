@@ -178,7 +178,7 @@ export default (editor, opts = {}) => {
     view: defaultView,
   });
 
-  domc.addType('image', {
+  domc.addType('card-slider-image', {
     extend: 'image',
     model: {
       defaults: {
@@ -220,7 +220,7 @@ export default (editor, opts = {}) => {
 
       let target = selected;
 
-      if (selected.is('image')) {
+      if (selected.is('card-slider-image')) {
         const parent = selected.parent();
         if (parent && parent.is('card-slider-slide')) {
           target = parent;
@@ -274,7 +274,7 @@ export default (editor, opts = {}) => {
 
       let target = selected;
 
-      if (selected.is('image')) {
+      if (selected.is('card-slider-image')) {
         const parent = selected.parent();
         if (parent && parent.is('card-slider-slide')) {
           target = parent;
@@ -342,8 +342,8 @@ export default (editor, opts = {}) => {
       mobileLink.set('target', target);
       mobileLink.addAttributes({ href, target });
   
-      const desktopImg = desktopSlide.components().filter((comp) => comp.is('image'))[0];
-      const mobileImg = mobileLink.components().filter((comp) => comp.is('image'))[0];
+      const desktopImg = desktopSlide.components().filter((comp) => comp.is('card-slider-image'))[0];
+      const mobileImg = mobileLink.components().filter((comp) => comp.is('card-slider-image'))[0];
   
       if (desktopImg && mobileImg) {
         const src = desktopImg.get('src') || '';
@@ -377,8 +377,8 @@ export default (editor, opts = {}) => {
       desktopSlide.set('target', target);
       desktopSlide.addAttributes({ href, target });
   
-      const mobileImg = mobileLink.components().filter((comp) => comp.is('image'))[0];
-      const desktopImg = desktopSlide.components().filter((comp) => comp.is('image'))[0];
+      const mobileImg = mobileLink.components().filter((comp) => comp.is('card-slider-image'))[0];
+      const desktopImg = desktopSlide.components().filter((comp) => comp.is('card-slider-image'))[0];
   
       if (mobileImg && desktopImg) {
         const src = mobileImg.get('src') || '';
@@ -392,7 +392,7 @@ export default (editor, opts = {}) => {
   }
   editor.on('component:update:attributes', (model) => {
     if (!model) return;
-    if (!model.is('card-slider-slide') && !model.is('image')) return;
+    if (!model.is('card-slider-slide') && !model.is('card-slider-image')) return;
 
     const parent = model.parent();
     if (!parent) return;
