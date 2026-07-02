@@ -8,6 +8,11 @@ export default (editor, opts = {}) => {
   const defaultView = defaultType.view;
 
   domc.addType('card-slider', {
+    isComponent: el => {
+      if (el.classList?.contains('slider-trigger-area')) {
+        return { type: 'card-slider' };
+      }
+    },
     model: {
       defaults: {
         name: 'Card Slider',
@@ -70,6 +75,11 @@ export default (editor, opts = {}) => {
   });
 
   domc.addType('card-slider-slide', {
+    isComponent: el => {
+      if (el.classList?.contains('card-slider-slide')) {
+        return { type: 'card-slider-slide' };
+      }
+    },
     model: {
       defaults: {
         name: 'Card Slide',
@@ -176,6 +186,10 @@ export default (editor, opts = {}) => {
         // pastable: false,
         draggable: false,
         droppable: false,
+        // The base image type defaults `src` to a placeholder SVG icon, which
+        // GrapesJS then renders as a base64 data URI. Use a real empty string
+        // instead so an unset card image stays genuinely empty (no base64).
+        src: '',
         traits: [
           {
             type: 'text',
