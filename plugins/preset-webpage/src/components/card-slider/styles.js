@@ -132,7 +132,7 @@ export default `
     border-radius: 20px;
   }
 }
-// Responsive for Slider 
+/* Responsive for Slider */
 @media (max-width: 876px) {
 .card-slider-slide {
     margin-left: -85px;
@@ -142,4 +142,5 @@ export default `
  .card-slider-slide {
     margin-left: -120px;
  }
+}
 `;

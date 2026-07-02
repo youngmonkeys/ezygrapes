@@ -14,7 +14,7 @@ import pluginForms from './components/forms';
 import pluginAviary from './components/aviary';
 import pluginFilestack from './components/filestack';
 import pluginFontIcon from './components/font-icon';
-// import pluginCardSlider from './components/card-slider';
+import pluginCardSlider from './components/card-slider';
 
 export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) => {
   i18n.addI18nMessages(editor);
@@ -100,7 +100,7 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
   aviaryOpts && pluginAviary(editor, aviaryOpts);
   filestackOpts && pluginFilestack(editor, filestackOpts);
   fontIconOpts && pluginFontIcon(editor, fontIconOpts);
-  // cardSliderOpts && pluginCardSlider(editor, cardSliderOpts);
+  cardSliderOpts && pluginCardSlider(editor, cardSliderOpts);
 
   // Load components
   components(editor, config);

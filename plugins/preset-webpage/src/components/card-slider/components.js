@@ -133,10 +133,13 @@ export default (editor) => {
     },
   });
 
+  const defaultDeleteCommand = editor.Commands.get('core:component-delete');
+  const defaultPasteCommand = editor.Commands.get('core:paste');
+
   editor.Commands.add('core:component-delete', {
     run(editor, sender, options) {
       const selected = editor.getSelected();
-      if (!selected) return;
+      if (!selected) return defaultDeleteCommand.run(editor, sender, options);
 
       let target = selected;
 
@@ -149,10 +152,14 @@ export default (editor) => {
 
       let containerToDelete = target;
       const parent = target.parent();
-      if (!parent) return;
+      if (!parent) return defaultDeleteCommand.run(editor, sender, options);
 
       const isDesktop = !!parent.closest('.slider-wrapper-desktop');
       const isMobile = !!parent.closest('.swiper-wrapper');
+
+      if (!isDesktop && !isMobile) {
+        return defaultDeleteCommand.run(editor, sender, options);
+      }
 
       if (isMobile) {
         alert('Please switch to desktop view to delete slides.');
@@ -184,9 +191,9 @@ export default (editor) => {
   });
 
   editor.Commands.add('core:paste', {
-    run(editor) {
+    run(editor, sender, options) {
       const selected = editor.getSelected();
-      if (!selected) return;
+      if (!selected) return defaultPasteCommand.run(editor, sender, options);
 
       let target = selected;
 
@@ -198,10 +205,14 @@ export default (editor) => {
       }
 
       const parent = target.parent();
-      if (!parent) return;
+      if (!parent) return defaultPasteCommand.run(editor, sender, options);
 
       const isDesktop = !!parent.closest('.slider-wrapper-desktop');
       const isMobile = !!parent.closest('.swiper-wrapper');
+
+      if (!isDesktop && !isMobile) {
+        return defaultPasteCommand.run(editor, sender, options);
+      }
 
       if (isMobile) {
         alert('Please switch to desktop view to add slides.');
