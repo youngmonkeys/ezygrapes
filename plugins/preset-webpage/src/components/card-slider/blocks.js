@@ -43,8 +43,8 @@ export default (editor) => {
     content: `
       <div class="slider-trigger-area">
        <div class="slider-top">
-         <h2>Explore Our Series</h2>
-         <h6>Discover the latest trends and insights</h6>
+         <h2 data-gjs-type="text">Explore Our Series</h2>
+         <h6 data-gjs-type="text">Discover the latest trends and insights</h6>
       </div>
         <div class="slider-wrapper-desktop">
           ${generateDesktopSlides()}
@@ -55,7 +55,7 @@ export default (editor) => {
           </div>
         </div>
         <div class="slider-bottom-button">
-          <a href="#" target="_self" data-gjs-type="card-slider-slide">Explore Series</a>
+          <a href="#" target="_self" data-gjs-type="link">Explore Series</a>
         </div>
       </div>
     `,
