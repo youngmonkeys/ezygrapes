@@ -10,13 +10,6 @@ export default (editor) => {
     return editor.getCss({ avoidProtected: true });
   };
 
-  editor.getMergedCssHtml = function () {
-    const css = this.getInnerCss();
-    const html = this.getInnerHtml();
-    const js = this.getJs();
-    return `<style>${css}</style><body>${html}</body><script>${js}</script>`;
-  };
-
   editor.generatePageFullHtml = function () {
     return generatePageFullHtml(
       this.getPageIconUrl ? this.getPageIconUrl() : '',
@@ -25,8 +18,6 @@ export default (editor) => {
       this.getPageImageUrl ? this.getPageImageUrl() : '',
       this.getAdditionPageHeader ? this.getAdditionPageHeader() : '',
       this.getInnerHtml(),
-      this.getInnerCss(),
-      this.getJs(),
       this.getAdditionPageFooter ? this.getAdditionPageFooter() : ''
     );
   };
@@ -39,8 +30,6 @@ function generatePageFullHtml(
   pageImageUrl,
   additionPageHeader,
   html,
-  css,
-  js,
   additionPageFooter,
 ) {
   return `
@@ -53,20 +42,18 @@ function generatePageFullHtml(
       ${pageIconUrl ? `<link rel="icon" type="image/x-icon" href="${pageIconUrl}">` : ''}
       ${pageSummary ? `<meta property="og:description" content="${pageSummary}" />` : ''}
       ${pageImageUrl ? `<meta property="og:image" content="${pageImageUrl}">` : ''}
-      ${additionPageHeader || ''}
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css">
-      <style>${css}</style>
+      ${additionPageHeader || ''}
     </head>
     <body>
       ${html}
-      
+
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script>
-      <script>${js}</script>
       ${additionPageFooter || ''}
     </body>
     </html>

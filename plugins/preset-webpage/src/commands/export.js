@@ -23,7 +23,7 @@ export default (editor, opts = {}) => {
             <meta charset="utf-8">
             <link rel="stylesheet" href="./css/style.css">
           </head>
-          <body>${ed.getHtml()}</body>
+          <body>${ed.getHtml()}<script>${ed.getJs()}</script></body>
         <html>`,
     },
     isBinary: null,
