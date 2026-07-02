@@ -249,11 +249,6 @@ export default (editor, opts = {}) => {
         slides = parent.components().filter((comp) => comp.is('card-slider-slide'));
       }
 
-      if (slides.length <= minSlides) {
-        alert(`You must keep at least ${minSlides} slides.`);
-        return;
-      }
-
       const idx = slides.indexOf(containerToDelete);
       containerToDelete.remove();
       const mobileWrapper = editor.getWrapper().find('.card-swiper-custom .swiper-wrapper')[0];
