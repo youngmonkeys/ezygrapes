@@ -1,7 +1,6 @@
-import ezygrapes from 'ezygrapes';
 import loadBlocks from './blocks';
 
-export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => {
+export default (editor, opts = {}) => {
   const config = {
     blocks: [
       'container_fluid',
@@ -30,4 +29,4 @@ export default ezygrapes.plugins.add('gjs-blocks-basic', (editor, opts = {}) => 
 
   // Add blocks
   loadBlocks(editor, config);
-});
+};

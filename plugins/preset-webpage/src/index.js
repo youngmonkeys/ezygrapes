@@ -1,4 +1,3 @@
-import ezygrapes from 'ezygrapes';
 import commands from './commands';
 import components from './components';
 import events from './events';
@@ -16,7 +15,9 @@ import pluginFilestack from './components/filestack';
 import pluginFontIcon from './components/font-icon';
 import pluginCardSlider from './components/card-slider';
 
-export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) => {
+const PLUGIN_NAME = 'gjs-preset-webpage';
+
+const presetWebpage = (editor, opts = {}) => {
   i18n.addI18nMessages(editor);
 
   let config = {
@@ -116,4 +117,12 @@ export default ezygrapes.plugins.add('gjs-preset-webpage', (editor, opts = {}) =
 
   // Load methods
   methods(editor, config);
-});
+};
+
+// The editor resolves a plugin passed by name (eg. `plugins: ['gjs-preset-webpage']`)
+// by looking it up on the global scope, so expose it there.
+if (typeof window !== 'undefined') {
+  window[PLUGIN_NAME] = presetWebpage;
+}
+
+export default presetWebpage;

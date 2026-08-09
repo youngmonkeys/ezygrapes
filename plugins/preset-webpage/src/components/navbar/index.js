@@ -1,11 +1,10 @@
-import ezygrapes from 'ezygrapes';
 import loadBlocks from './blocks';
 import loadComponents from './components';
 import {
   hNavbarRef
 } from './consts';
 
-export default ezygrapes.plugins.add('gjs-navbar', (editor, opts = {}) => {
+export default (editor, opts = {}) => {
 
   let config = {
     blocks: [hNavbarRef],
@@ -16,4 +15,4 @@ export default ezygrapes.plugins.add('gjs-navbar', (editor, opts = {}) => {
 
   loadComponents(editor, config);
   loadBlocks(editor, config);
-});
+};

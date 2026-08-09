@@ -1,6 +1,4 @@
-import ezygrapes from 'ezygrapes';
-
-export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {}) => {
+export default (editor, opts = {}) => {
   let config = editor.getConfig();
   let pfx = config.stylePrefix || '';
   let btnEl;
@@ -87,4 +85,4 @@ export default ezygrapes.plugins.add('gjs-plugin-filestack', (editor, opts = {})
     });
     return editor.AssetManager.add(urls);
   };
-});
+};

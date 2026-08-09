@@ -1,8 +1,6 @@
-import ezygrapes from 'ezygrapes';
-
 const PLUGIN_NAME = 'gjs-aviary';
 
-export default ezygrapes.plugins.add(PLUGIN_NAME, (editor, opts = {}) => {
+export default (editor, opts = {}) => {
   let em = editor.getModel();
   let editorImage;
 
@@ -88,4 +86,4 @@ export default ezygrapes.plugins.add(PLUGIN_NAME, (editor, opts = {}) => {
       em.trigger(`${PLUGIN_NAME}:launch`, sel, imageEditor);
     },
   });
-});
+};

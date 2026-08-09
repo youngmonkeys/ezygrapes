@@ -1,7 +1,6 @@
-import ezygrapes from 'ezygrapes';
 import loadBlocks from './blocks';
 
-export default ezygrapes.plugins.add('gjs-component-font-icon', (editor, opts = {}) => {
+export default (editor, opts = {}) => {
   let config = {
     blocks: ['font-icon'],
     defaultStyle: true,
@@ -10,4 +9,4 @@ export default ezygrapes.plugins.add('gjs-component-font-icon', (editor, opts = 
   };
 
   loadBlocks(editor, config);
-});
+};
